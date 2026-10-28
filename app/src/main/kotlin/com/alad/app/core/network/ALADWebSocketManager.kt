@@ -237,10 +237,12 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                 put("model", "models/gemini-3.5-live-translate-preview")
                 // Follow the documented Live Translate config: it accepts audio input only,
                 // not system prompts, activity-detection settings, or OCR text mixed into the stream.
+                // The active v1beta WebSocket schema expects transcription settings directly under setup.
+                // Putting them in generationConfig is rejected with close code 1007 (unknown field).
+                put("inputAudioTranscription", JSONObject())
+                put("outputAudioTranscription", JSONObject())
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
-                    put("inputAudioTranscription", JSONObject())
-                    put("outputAudioTranscription", JSONObject())
                     put("translationConfig", JSONObject().apply {
                         put("targetLanguageCode", targetLanguageCode)
                         put("echoTargetLanguage", false)
