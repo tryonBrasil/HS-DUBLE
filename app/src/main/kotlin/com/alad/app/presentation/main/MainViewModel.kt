@@ -36,7 +36,7 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val showDualSubtitles: StateFlow<Boolean> = DubbingSessionRepository.showDualSubtitles
 
     val sourceLang: StateFlow<String> = repository.sourceLangFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "auto")
 
     val targetLang: StateFlow<String> = repository.targetLangFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "pt")
