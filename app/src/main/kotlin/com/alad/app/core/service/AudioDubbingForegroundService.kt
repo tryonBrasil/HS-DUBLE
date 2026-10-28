@@ -17,7 +17,6 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.alad.app.R
 import com.alad.app.core.audio.AudioCaptureManager
-import com.alad.app.core.capture.GameSubtitleOcr
 import com.alad.app.core.audio.AudioPlayerManager
 import com.alad.app.core.audio.AudioUtils
 import com.alad.app.core.network.ALADWebSocketManager
@@ -59,7 +58,6 @@ class AudioDubbingForegroundService : Service() {
 
     private var mediaProjection: MediaProjection? = null
     private var audioCaptureManager: AudioCaptureManager? = null
-    private var subtitleOcr: GameSubtitleOcr? = null
     private var audioPlayerManager: AudioPlayerManager? = null
     private var webSocketManager: ALADWebSocketManager? = null
     private var settingsObservationJob: Job? = null
@@ -185,6 +183,10 @@ class AudioDubbingForegroundService : Service() {
                     DubbingSessionRepository.appendSourceSubtitleText(sourceChunk)
                 }
 
+                webSocketManager?.onSourceLanguageDetected = { languageCode ->
+                    DubbingSessionRepository.setDetectedSourceLanguage(languageCode)
+                }
+
                 webSocketManager?.onTurnComplete = {
                     DubbingSessionRepository.onTurnComplete()
                 }
@@ -288,10 +290,6 @@ class AudioDubbingForegroundService : Service() {
                         val newAmp = AudioUtils.processPcmAmplitude(pcmData, currentAmp)
                         DubbingSessionRepository.setAudioAmplitude(newAmp)
                     }
-                    subtitleOcr?.stop()
-                    subtitleOcr = GameSubtitleOcr(projection) { subtitle ->
-                        webSocketManager?.sendSubtitleContext(subtitle)
-                    }.also { it.start() }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during dubbing session startup", e)
@@ -315,8 +313,6 @@ class AudioDubbingForegroundService : Service() {
         settingsObservationJob?.cancel()
         settingsObservationJob = null
 
-        subtitleOcr?.stop()
-        subtitleOcr = null
         mediaProjection?.stop()
         mediaProjection = null
     }
