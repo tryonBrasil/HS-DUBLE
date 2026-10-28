@@ -13,17 +13,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
 class AudioPlayerManager(private val context: Context) {
+    private data class QueuedAudio(val data: ByteArray, val generation: Long)
+
+    private val playbackLock = Any()
+    @Volatile private var playbackGeneration = 0L
+
     private var audioTrack: AudioTrack? = null
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
 
     private val playerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val audioChannel = Channel<ByteArray>(capacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    // Preserve all speech chunks; dropping old chunks cuts syllables while subtitles keep advancing.
+    private val audioChannel = Channel<QueuedAudio>(Channel.UNLIMITED)
     private var playbackJob: Job? = null
 
     private var initialMusicVolume: Int = -1
@@ -104,7 +109,9 @@ class AudioPlayerManager(private val context: Context) {
 
         playbackJob = playerScope.launch {
             var prevSample = 0f
-            for (chunk in audioChannel) {
+            for (queuedAudio in audioChannel) {
+                if (queuedAudio.generation != playbackGeneration) continue
+                val chunk = queuedAudio.data
                 if (isDubbingMuted || currentVolume <= 0.01f) {
                     continue
                 }
@@ -160,7 +167,21 @@ class AudioPlayerManager(private val context: Context) {
                         processedChunk[byteIndex + 1] = ((scaled shr 8) and 0xFF).toByte()
                     }
 
-                    audioTrack?.write(processedChunk, 0, processedChunk.size)
+                    synchronized(playbackLock) {
+                        // An interruption may happen while this chunk is being processed.
+                        // Re-check under the same lock used by flushPlayback so stale speech
+                        // cannot be written back after the AudioTrack buffer has been cleared.
+                        if (queuedAudio.generation == playbackGeneration) {
+                            audioTrack?.let { track ->
+                                val written = track.write(
+                                    processedChunk, 0, processedChunk.size, AudioTrack.WRITE_BLOCKING
+                                )
+                                if (written < 0) {
+                                    Log.w(TAG, "AudioTrack write failed: $written")
+                                }
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
                     Log.e(TAG, "Error writing audio chunk", e)
                 }
@@ -169,7 +190,33 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun playAudioData(data: ByteArray) {
-        audioChannel.trySend(data)
+        audioChannel.trySend(QueuedAudio(data.copyOf(), playbackGeneration))
+    }
+
+    /**
+     * Flush audio from an interrupted model turn. The generation check prevents a chunk
+     * already taken by the playback worker from being written after this flush.
+     */
+    fun flushPlayback() {
+        synchronized(playbackLock) {
+            playbackGeneration += 1L
+            while (audioChannel.tryReceive().isSuccess) {
+                // Discard every queued chunk from the interrupted turn.
+            }
+            try {
+                audioTrack?.let { track ->
+                    if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
+                        track.pause()
+                    }
+                    track.flush()
+                    if (track.state == AudioTrack.STATE_INITIALIZED) {
+                        track.play()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not flush interrupted audio", e)
+            }
+        }
     }
 
     fun setDubbingAudio(volume: Float, isMuted: Boolean) {
