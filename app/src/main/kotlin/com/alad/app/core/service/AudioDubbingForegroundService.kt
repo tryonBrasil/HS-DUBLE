@@ -15,6 +15,7 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.alad.app.R
 import com.alad.app.core.audio.AudioCaptureManager
 import com.alad.app.core.audio.AudioPlayerManager
 import com.alad.app.core.audio.AudioUtils
