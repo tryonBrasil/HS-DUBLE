@@ -245,6 +245,9 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
+                // App updater: checks the latest published APK without uninstalling the app.
+                UpdateAppCard()
+
                 // 1. Status Indicator
                 val statusText = if (isConnected) {
                     stringResource(R.string.status_connected)
