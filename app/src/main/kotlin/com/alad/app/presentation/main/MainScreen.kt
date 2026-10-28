@@ -103,6 +103,7 @@ fun MainScreen(
     val showDualSubtitles by viewModel.showDualSubtitles.collectAsState()
     val selectedVoice by viewModel.voicePersona.collectAsState()
     val selectedMode by viewModel.dubbingMode.collectAsState()
+    val sourceLang by viewModel.sourceLang.collectAsState()
     val targetLang by viewModel.targetLang.collectAsState()
     val targetDialect by viewModel.targetDialect.collectAsState()
 
@@ -460,7 +461,81 @@ fun MainScreen(
                     }
                 }
 
-                // 4. Target Language & Dialect Selection Bento Card
+                // 4. Source language selector (the language spoken in the game).
+                var sourceLangExpanded by remember { mutableStateOf(false) }
+                var sourceLangSearchQuery by remember { mutableStateOf("") }
+                val sourceLanguageOptions = remember { listOf("auto" to "🌐 Detecção automática") + supportedLanguages }
+                val displaySourceLang = sourceLanguageOptions.find { it.first == sourceLang }?.second ?: "🌐 Detecção automática"
+
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    borderColor = NeonBlue,
+                    borderAlpha = 0.22f
+                ) {
+                    Column(modifier = Modifier.padding(18.dp)) {
+                        Text(
+                            text = "Idioma falado no jogo",
+                            color = TextSecondary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        ExposedDropdownMenuBox(
+                            expanded = sourceLangExpanded,
+                            onExpandedChange = { sourceLangExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = if (sourceLangExpanded) sourceLangSearchQuery else displaySourceLang,
+                                onValueChange = { sourceLangSearchQuery = it },
+                                readOnly = !sourceLangExpanded,
+                                label = { Text("Idioma de origem", color = TextSecondary) },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceLangExpanded) },
+                                shape = RoundedCornerShape(16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedContainerColor = Color(0x30FFFFFF),
+                                    unfocusedContainerColor = Color(0x15FFFFFF),
+                                    focusedBorderColor = NeonCyan,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White
+                                ),
+                                modifier = Modifier.menuAnchor().fillMaxWidth()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = sourceLangExpanded,
+                                onDismissRequest = {
+                                    sourceLangExpanded = false
+                                    sourceLangSearchQuery = ""
+                                },
+                                modifier = Modifier
+                                    .background(Color(0xFF131D31))
+                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
+                            ) {
+                                sourceLanguageOptions.filter { it.second.contains(sourceLangSearchQuery, ignoreCase = true) }
+                                    .forEach { (code, name) ->
+                                        DropdownMenuItem(
+                                            text = { Text(name, color = if (code == sourceLang) NeonCyan else Color.White) },
+                                            onClick = {
+                                                viewModel.updateSourceLang(code)
+                                                sourceLangExpanded = false
+                                                sourceLangSearchQuery = ""
+                                            }
+                                        )
+                                    }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Escolha Coreano para falas em coreano ou Detecção automática para deixar o Gemini identificar o idioma.",
+                            color = TextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp
+                        )
+                    }
+                }
+
+                // 5. Target Language & Dialect Selection Bento Card
                 var langExpanded by remember { mutableStateOf(false) }
                 var dialectExpanded by remember { mutableStateOf(false) }
                 var searchQuery by remember { mutableStateOf("") }
