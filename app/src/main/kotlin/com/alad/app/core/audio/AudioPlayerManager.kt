@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 
@@ -22,10 +23,11 @@ class AudioPlayerManager(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
 
     private val playerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    private val audioChannel = Channel<ByteArray>(Channel.UNLIMITED)
+    private val audioChannel = Channel<ByteArray>(capacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     private var playbackJob: Job? = null
 
     private var initialMusicVolume: Int = -1
+    private var baseMusicVolume: Int = 10
     private var maxMusicVolume: Int = 15
 
     companion object {
@@ -50,8 +52,10 @@ class AudioPlayerManager(private val context: Context) {
         try {
             initialMusicVolume = audioManager?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
             maxMusicVolume = audioManager?.getStreamMaxVolume(AudioManager.STREAM_MUSIC) ?: 15
-            if (initialMusicVolume <= 0) {
-                initialMusicVolume = (maxMusicVolume * 0.7f).toInt().coerceAtLeast(1)
+            baseMusicVolume = if (initialMusicVolume > 0) {
+                initialMusicVolume
+            } else {
+                (maxMusicVolume * 0.7f).toInt().coerceAtLeast(1)
             }
         } catch (e: Exception) {
             Log.w(TAG, "Could not query STREAM_MUSIC volume", e)
@@ -106,9 +110,9 @@ class AudioPlayerManager(private val context: Context) {
                 }
 
                 try {
-                    // Direct software PCM scaling with logarithmic curve for 100% audible control on all devices
+                    // Apply the user's volume once in software; AudioTrack remains at unity gain.
                     val vol = currentVolume.coerceIn(0f, 1f)
-                    val gain = (vol * vol * 1.35f)
+                    val gain = vol
                     val persona = currentVoicePersona
 
                     val processedChunk = ByteArray(chunk.size)
@@ -171,7 +175,7 @@ class AudioPlayerManager(private val context: Context) {
     fun setDubbingAudio(volume: Float, isMuted: Boolean) {
         currentVolume = volume.coerceIn(0f, 1f)
         isDubbingMuted = isMuted
-        val targetHardwareVolume = if (isMuted) 0f else volume.coerceIn(0f, 1f)
+        val targetHardwareVolume = if (isMuted) 0f else 1f
         try {
             audioTrack?.setVolume(targetHardwareVolume)
         } catch (e: Exception) {
@@ -181,7 +185,7 @@ class AudioPlayerManager(private val context: Context) {
 
     fun setOriginalMediaAudio(volumeRatio: Float, isMuted: Boolean) {
         try {
-            val baseVol = if (initialMusicVolume > 0) initialMusicVolume else (maxMusicVolume * 0.7f).toInt()
+            val baseVol = baseMusicVolume
             val targetVolume = if (isMuted) {
                 0
             } else {
