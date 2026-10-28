@@ -32,8 +32,27 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      - name: Prepare release signing key (when configured)
+        env:
+          HS_KEYSTORE_BASE64: ${{ secrets.HS_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$HS_KEYSTORE_BASE64" ]; then
+            printf '%s' "$HS_KEYSTORE_BASE64" | base64 --decode > hs-voice-translator-release.jks
+            chmod 600 hs-voice-translator-release.jks
+          else
+            echo "Signing key secret not configured; release APK will be unsigned."
+          fi
+
       - name: Build debug and release APKs
+        env:
+          HS_STORE_PASSWORD: ${{ secrets.HS_STORE_PASSWORD }}
+          HS_KEY_ALIAS: ${{ secrets.HS_KEY_ALIAS }}
+          HS_KEY_PASSWORD: ${{ secrets.HS_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleDebug assembleRelease
+
+      - name: Remove signing key file
+        if: always()
+        run: rm -f hs-voice-translator-release.jks
 
       - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
