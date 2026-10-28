@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ALAD</string>
-    <string name="app_name_full">ALAD (Live Audio Dubbing Mobile)</string>
+    <string name="app_name">HS Voice Translator</string>
+    <string name="app_name_full">HS Voice Translator</string>
     <string name="system_status">System Status</string>
     <string name="status_connected">Live Dubbing Active</string>
     <string name="status_disconnected">Ready / Disconnected</string>
@@ -24,7 +24,7 @@
     <string name="show">Show</string>
     <string name="get_api_key">Get Gemini API Key</string>
     <string name="api_key_guide">To use this app, you need a free Gemini API Key from Google AI Studio.</string>
-    <string name="help_title">How to use ALAD</string>
+    <string name="help_title">How to use HS Voice Translator</string>
     <string name="help_content">1. Go to settings and set your Gemini API Key.\n2. Choose your target language and dialect.\n3. Adjust the Audio Mixer sliders for AI voice and background media.\n4. Tap \'Start Dubbing\' to begin real-time translation.\n5. If installing on Samsung devices (One UI 6+), temporarily disable Auto Blocker in Security settings if installation is blocked.</string>
     <string name="close">Close</string>
 
