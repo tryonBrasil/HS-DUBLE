@@ -189,6 +189,13 @@ class AudioDubbingForegroundService : Service() {
                     DubbingSessionRepository.onTurnComplete()
                 }
 
+                // If Live interrupts a response, flush both audio and its stale caption so they
+                // cannot continue out of sync while the next translated turn starts.
+                webSocketManager?.onInterrupted = {
+                    audioPlayerManager?.flushPlayback()
+                    DubbingSessionRepository.clearSubtitle()
+                }
+
                 var activeDubbingMode = dubbingMode
 
                 webSocketManager?.onBinaryMessageReceived = { audioChunk ->
