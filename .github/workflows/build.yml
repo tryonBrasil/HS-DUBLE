@@ -110,6 +110,12 @@ jobs:
           name: hs-voice-translator-apks
           path: apks
 
+      - name: Prepare signed release APK
+        run: |
+          RELEASE_APK="$(find apks -type f -path '*/release/*.apk' -print -quit)"
+          test -n "$RELEASE_APK" || { echo "Signed release APK not found"; exit 1; }
+          cp "$RELEASE_APK" "HS-Voice-Translator-${{ needs.build.outputs.version }}-release.apk"
+
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
@@ -117,7 +123,7 @@ jobs:
           name: HS Voice Translator v${{ needs.build.outputs.version }}
           target_commitish: hs-voice-translator-setup
           body: "Versão de lançamento do HS Voice Translator. Instale o APK Release e use Verificar atualizações para testar a entrega da próxima versão."
-          files: apks/**/*.apk
+          files: HS-Voice-Translator-${{ needs.build.outputs.version }}-release.apk
           generate_release_notes: false
           fail_on_unmatched_files: true
         env:
