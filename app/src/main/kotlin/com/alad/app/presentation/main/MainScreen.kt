@@ -75,9 +75,21 @@ fun MainScreen(
     val liveSubtitleText by viewModel.liveSubtitleText.collectAsState()
     val liveSourceSubtitleText by viewModel.liveSourceSubtitleText.collectAsState()
     val detectedSourceLanguage by viewModel.detectedSourceLanguage.collectAsState()
-    val detectedSourceLanguageLabel = supportedLanguages
-        .find { it.first.equals(detectedSourceLanguage.substringBefore('-'), ignoreCase = true) }
-        ?.second ?: detectedSourceLanguage
+    val detectedSourceLanguageLabel = when (detectedSourceLanguage.substringBefore('-').lowercase()) {
+        "ja" -> "Japonês"
+        "en" -> "Inglês"
+        "ko" -> "Coreano"
+        "zh" -> "Chinês"
+        "pt" -> "Português"
+        "es" -> "Espanhol"
+        "fr" -> "Francês"
+        "de" -> "Alemão"
+        "ru" -> "Russo"
+        "it" -> "Italiano"
+        else -> supportedLanguages
+            .find { it.first.equals(detectedSourceLanguage.substringBefore('-'), ignoreCase = true) }
+            ?.second ?: detectedSourceLanguage
+    }
     val showDualSubtitles by viewModel.showDualSubtitles.collectAsState()
     val selectedVoice by viewModel.voicePersona.collectAsState()
     val selectedMode by viewModel.dubbingMode.collectAsState()
