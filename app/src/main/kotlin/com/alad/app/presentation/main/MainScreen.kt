@@ -92,6 +92,70 @@ fun MainScreen(
     var updateDialogMessage by remember { mutableStateOf<String?>(null) }
     var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
 
+    // Consulta automaticamente as versões publicadas ao abrir a tela principal.
+    // Só mostra aviso quando existe uma versão mais nova; falhas ficam silenciosas
+    // para não interromper o uso e o botão manual continua disponível.
+    LaunchedEffect(Unit) {
+        if (!isCheckingUpdates) {
+            isCheckingUpdates = true
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    val connection = URL("https://api.github.com/repos/tryonBrasil/HS-DUBLE/releases?per_page=20")
+                        .openConnection() as java.net.HttpURLConnection
+                    connection.connectTimeout = 10000
+                    connection.readTimeout = 10000
+                    connection.setRequestProperty("Accept", "application/vnd.github+json")
+                    connection.setRequestProperty("User-Agent", "HS-Voice-Translator-Android")
+                    try {
+                        if (connection.responseCode !in 200..299) {
+                            throw IllegalStateException("Não foi possível consultar as versões.")
+                        }
+                        val releases = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+                        val release = (0 until releases.length())
+                            .mapNotNull { releases.optJSONObject(it) }
+                            .firstOrNull { candidate ->
+                                candidate.optString("tag_name").removePrefix("v")
+                                    .matches(Regex("\\d+(\\.\\d+)*"))
+                            } ?: throw IllegalStateException("Nenhuma versão válida encontrada.")
+                        val latestVersion = release.optString("tag_name").removePrefix("v")
+                        val currentVersion = context.packageManager
+                            .getPackageInfo(context.packageName, 0).versionName ?: "1.3.4"
+                        val apkUrl = release.optJSONArray("assets")
+                            ?.let { assets ->
+                                (0 until assets.length()).map { assets.getJSONObject(it) }
+                                    .firstOrNull {
+                                        it.optString("name").contains("release", ignoreCase = true) &&
+                                            it.optString("name").endsWith(".apk", ignoreCase = true)
+                                    }
+                                    ?.optString("browser_download_url")
+                                    ?: (0 until assets.length()).map { assets.getJSONObject(it) }
+                                        .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                                        ?.optString("browser_download_url")
+                            }.orEmpty()
+                        Triple(currentVersion, latestVersion, apkUrl.ifBlank { release.optString("html_url") })
+                    } finally {
+                        connection.disconnect()
+                    }
+                }
+            }
+            result.onSuccess { (current, latest, downloadUrl) ->
+                val latestParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
+                val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+                val latestIsNewer = (0 until maxOf(latestParts.size, currentParts.size))
+                    .firstNotNullOfOrNull { index ->
+                        val comparison = latestParts.getOrElse(index) { 0 }
+                            .compareTo(currentParts.getOrElse(index) { 0 })
+                        comparison.takeIf { it != 0 }
+                    }?.let { it > 0 } ?: false
+                if (latestIsNewer && downloadUrl.isNotBlank()) {
+                    updateDownloadUrl = downloadUrl
+                    updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja abrir o download?"
+                }
+            }
+            isCheckingUpdates = false
+        }
+    }
+
     if (showHelpDialog) {
         Dialog(onDismissRequest = { showHelpDialog = false }) {
             GlassCard(
