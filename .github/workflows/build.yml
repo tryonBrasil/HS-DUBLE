@@ -11,14 +11,20 @@ on:
     branches: [ "main", "master" ]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
     name: Build APK
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.app_version.outputs.version }}
 
     steps:
+      - name: Read app version
+        id: app_version
+        run: echo "version=$(sed -n 's/.*versionName = \"\([^\"]*\)\".*/\1/p' app/build.gradle.kts | head -n 1)" >> "$GITHUB_OUTPUT"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -86,7 +92,7 @@ jobs:
     name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.ref == 'refs/heads/hs-voice-translator-setup' && startsWith(github.event.head_commit.message, 'Release v')
 
     steps:
       - name: Download APK from build job
@@ -98,7 +104,12 @@ jobs:
       - name: Publish APK release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.build.outputs.version }}
+          name: HS Voice Translator v${{ needs.build.outputs.version }}
+          target_commitish: hs-voice-translator-setup
+          body: "Versão de lançamento do HS Voice Translator. Instale o APK Release e use Verificar atualizações para testar a entrega da próxima versão."
           files: apks/**/*.apk
           generate_release_notes: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
