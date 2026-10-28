@@ -277,12 +277,14 @@ class AudioDubbingForegroundService : Service() {
                 mediaProjection?.let { projection ->
                     audioCaptureManager?.startCapture(projection, appUid) { pcmData ->
                         webSocketManager?.sendAudioData(pcmData)
-
-                        // Process RMS and smoothed amplitude via decoupled AudioUtils
                         val currentAmp = DubbingSessionRepository.audioAmplitude.value
                         val newAmp = AudioUtils.processPcmAmplitude(pcmData, currentAmp)
                         DubbingSessionRepository.setAudioAmplitude(newAmp)
                     }
+                    subtitleOcr?.stop()
+                    subtitleOcr = GameSubtitleOcr(projection) { subtitle ->
+                        webSocketManager?.sendSubtitleContext(subtitle)
+                    }.also { it.start() }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during dubbing session startup", e)
