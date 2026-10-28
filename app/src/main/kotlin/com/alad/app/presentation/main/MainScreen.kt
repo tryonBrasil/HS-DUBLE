@@ -1,7 +1,8 @@
 package com.alad.app.presentation.main
 
-import android.content.Intent
+import android.app.DownloadManager
 import android.net.Uri
+import android.os.Environment
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
@@ -132,7 +133,7 @@ fun MainScreen(
                                         .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
                                         ?.optString("browser_download_url")
                             }.orEmpty()
-                        Triple(currentVersion, latestVersion, apkUrl.ifBlank { release.optString("html_url") })
+                        Triple(currentVersion, latestVersion, apkUrl)
                     } finally {
                         connection.disconnect()
                     }
@@ -149,7 +150,7 @@ fun MainScreen(
                     }?.let { it > 0 } ?: false
                 if (latestIsNewer && downloadUrl.isNotBlank()) {
                     updateDownloadUrl = downloadUrl
-                    updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja abrir o download?"
+                    updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja baixar o APK diretamente? O download ficará nas notificações."
                 }
             }
             isCheckingUpdates = false
@@ -835,7 +836,7 @@ fun MainScreen(
                                             if (latestVersion.isBlank()) {
                                                 throw IllegalStateException("Não foi possível identificar a versão publicada.")
                                             }
-                                            Triple(currentVersion, latestVersion, apkUrl.ifBlank { release.optString("html_url") })
+                                            Triple(currentVersion, latestVersion, apkUrl)
                                         } finally {
                                             connection.disconnect()
                                         }
@@ -852,7 +853,7 @@ fun MainScreen(
                                         }?.let { it > 0 } ?: false
                                     if (latestIsNewer && downloadUrl.isNotBlank()) {
                                         updateDownloadUrl = downloadUrl
-                                        updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja abrir o download?"
+                                        updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja baixar o APK diretamente? O download ficará nas notificações."
                                     } else {
                                         updateDownloadUrl = null
                                         updateDialogMessage = if (!latestIsNewer) {
@@ -905,9 +906,35 @@ fun MainScreen(
                                 updateDownloadUrl = null
                                 if (!url.isNullOrBlank()) {
                                     runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                        val apkUri = Uri.parse(url)
+                                        val fileName = apkUri.lastPathSegment
+                                            ?.takeIf { it.endsWith(".apk", ignoreCase = true) }
+                                            ?: "HS-Voice-Translator-update.apk"
+                                        val request = DownloadManager.Request(apkUri)
+                                            .setTitle("HS Voice Translator")
+                                            .setDescription("Baixando atualização do aplicativo")
+                                            .setMimeType("application/vnd.android.package-archive")
+                                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                            .setAllowedOverMetered(true)
+                                            .setAllowedOverRoaming(false)
+                                        request.setDestinationInExternalPublicDir(
+                                            Environment.DIRECTORY_DOWNLOADS,
+                                            fileName
+                                        )
+                                        val manager = context.getSystemService(DownloadManager::class.java)
+                                            ?: throw IllegalStateException("Gerenciador de downloads indisponível.")
+                                        manager.enqueue(request)
+                                        Toast.makeText(
+                                            context,
+                                            "Download iniciado. Acompanhe as notificações e instale o APK quando terminar.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }.onFailure {
-                                        Toast.makeText(context, "Não foi possível abrir o link de atualização.", Toast.LENGTH_LONG).show()
+                                        Toast.makeText(
+                                            context,
+                                            "Não foi possível iniciar o download: ${it.localizedMessage ?: "erro desconhecido"}",
+                                            Toast.LENGTH_LONG
+                                        ).show()
                                     }
                                 }
                             }) {
