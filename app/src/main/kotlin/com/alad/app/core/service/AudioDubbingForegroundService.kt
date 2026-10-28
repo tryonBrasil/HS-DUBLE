@@ -320,8 +320,8 @@ class AudioDubbingForegroundService : Service() {
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val name = "Live Dubbing Service"
-            val descriptionText = "Capturing and streaming audio for dubbing"
+            val name = getString(R.string.notification_channel_name)
+            val descriptionText = getString(R.string.notification_channel_description)
             val importance = NotificationManager.IMPORTANCE_LOW
             val channel = NotificationChannel(CHANNEL_ID, name, importance).apply {
                 description = descriptionText
@@ -348,12 +348,12 @@ class AudioDubbingForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("ALAD Live Dubbing")
-            .setContentText("Connected and dubbing...")
+            .setContentTitle(getString(R.string.notification_title))
+            .setContentText(getString(R.string.notification_connected))
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pendingIntent)
-            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Disconnect", stopPendingIntent)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.notification_disconnect), stopPendingIntent)
             .setOngoing(true)
             .build()
         }
