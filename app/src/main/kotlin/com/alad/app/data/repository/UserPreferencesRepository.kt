@@ -43,7 +43,7 @@ class UserPreferencesRepository(private val context: Context) {
     val apiKeyFlow: Flow<String> = context.dataStore.data.map { it[API_KEY] ?: "" }.distinctUntilChanged()
     val sourceLangFlow: Flow<String> = context.dataStore.data.map { it[SOURCE_LANG] ?: "en" }.distinctUntilChanged()
     val targetLangFlow: Flow<String> = context.dataStore.data.map { it[TARGET_LANG] ?: "pt" }.distinctUntilChanged()
-    val targetDialectFlow: Flow<String> = context.dataStore.data.map { it[TARGET_DIALECT] ?: "" }.distinctUntilChanged()
+    val targetDialectFlow: Flow<String> = context.dataStore.data.map { it[TARGET_DIALECT] ?: "pt-BR" }.distinctUntilChanged()
     val volumeRatioFlow: Flow<Float> = context.dataStore.data.map { it[VOLUME_RATIO] ?: 1.0f }.distinctUntilChanged()
     val isDubbingMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_DUBBING_MUTED] ?: false }.distinctUntilChanged()
     val originalVolumeFlow: Flow<Float> = context.dataStore.data.map { it[ORIGINAL_VOLUME] ?: 0.30f }.distinctUntilChanged()
