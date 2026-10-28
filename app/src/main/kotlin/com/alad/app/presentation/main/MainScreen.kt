@@ -52,6 +52,11 @@ import com.alad.app.ui.theme.*
 import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.sin
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -80,6 +85,10 @@ fun MainScreen(
     val haptic = LocalHapticFeedback.current
     var showHelpDialog by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    val updateScope = rememberCoroutineScope()
+    var isCheckingUpdates by remember { mutableStateOf(false) }
+    var updateDialogMessage by remember { mutableStateOf<String?>(null) }
+    var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
 
     if (showHelpDialog) {
         Dialog(onDismissRequest = { showHelpDialog = false }) {
@@ -716,6 +725,118 @@ fun MainScreen(
                         }
                     }
                 )
+
+                OutlinedButton(
+                    onClick = {
+                        if (!isCheckingUpdates) {
+                            isCheckingUpdates = true
+                            updateScope.launch {
+                                val result = withContext(Dispatchers.IO) {
+                                    runCatching {
+                                        val connection = URL("https://api.github.com/repos/tryonBrasil/HS-DUBLE/releases/latest")
+                                            .openConnection() as java.net.HttpURLConnection
+                                        connection.connectTimeout = 10000
+                                        connection.readTimeout = 10000
+                                        connection.setRequestProperty("Accept", "application/vnd.github+json")
+                                        connection.setRequestProperty("User-Agent", "HS-Voice-Translator-Android")
+                                        try {
+                                            if (connection.responseCode !in 200..299) {
+                                                throw IllegalStateException("Ainda não há uma versão publicada ou não foi possível consultar.")
+                                            }
+                                            val release = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+                                            val latestVersion = release.optString("tag_name").removePrefix("v")
+                                            val currentVersion = context.packageManager
+                                                .getPackageInfo(context.packageName, 0).versionName ?: "1.3.0"
+                                            val apkUrl = release.optJSONArray("assets")
+                                                ?.let { assets ->
+                                                    (0 until assets.length()).map { assets.getJSONObject(it) }
+                                                        .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                                                        ?.optString("browser_download_url")
+                                                }.orEmpty()
+                                            if (latestVersion.isBlank()) {
+                                                throw IllegalStateException("Não foi possível identificar a versão publicada.")
+                                            }
+                                            Triple(currentVersion, latestVersion, apkUrl.ifBlank { release.optString("html_url") })
+                                        } finally {
+                                            connection.disconnect()
+                                        }
+                                    }
+                                }
+                                result.onSuccess { (current, latest, downloadUrl) ->
+                                    if (latest != current && downloadUrl.isNotBlank()) {
+                                        updateDownloadUrl = downloadUrl
+                                        updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja abrir o download?"
+                                    } else {
+                                        updateDownloadUrl = null
+                                        updateDialogMessage = if (latest == current) {
+                                            "Você já está usando a versão mais recente ($current)."
+                                        } else {
+                                            "A versão publicada ($latest) foi encontrada, mas o link do APK não está disponível."
+                                        }
+                                    }
+                                }.onFailure {
+                                    updateDownloadUrl = null
+                                    updateDialogMessage = "Não foi possível verificar agora. Confira sua conexão e tente novamente. Se ainda não houver uma versão publicada no GitHub, essa mensagem também pode aparecer."
+                                }
+                                isCheckingUpdates = false
+                            }
+                        }
+                    },
+                    enabled = !isCheckingUpdates,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = NeonCyan),
+                    border = BorderStroke(1.dp, NeonCyan.copy(alpha = 0.65f))
+                ) {
+                    if (isCheckingUpdates) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = NeonCyan
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text("Verificando atualizações…", fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.SystemUpdate, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Verificar atualizações", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                updateDialogMessage?.let { message ->
+                    AlertDialog(
+                        onDismissRequest = {
+                            updateDialogMessage = null
+                            updateDownloadUrl = null
+                        },
+                        title = { Text("Atualização do HS Voice Translator") },
+                        text = { Text(message) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val url = updateDownloadUrl
+                                updateDialogMessage = null
+                                updateDownloadUrl = null
+                                if (!url.isNullOrBlank()) {
+                                    runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                    }.onFailure {
+                                        Toast.makeText(context, "Não foi possível abrir o link de atualização.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }) {
+                                Text(if (updateDownloadUrl.isNullOrBlank()) "OK" else "Baixar atualização")
+                            }
+                        },
+                        dismissButton = {
+                            if (!updateDownloadUrl.isNullOrBlank()) {
+                                TextButton(onClick = {
+                                    updateDialogMessage = null
+                                    updateDownloadUrl = null
+                                }) { Text("Cancelar") }
+                            }
+                        }
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
             }
