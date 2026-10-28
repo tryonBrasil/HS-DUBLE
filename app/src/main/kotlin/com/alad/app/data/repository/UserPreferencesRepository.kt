@@ -41,7 +41,7 @@ class UserPreferencesRepository(private val context: Context) {
 
     val wsUrlFlow: Flow<String> = context.dataStore.data.map { it[WS_URL] ?: "ws://192.168.1.100:8000/ws/dub" }.distinctUntilChanged()
     val apiKeyFlow: Flow<String> = context.dataStore.data.map { it[API_KEY] ?: "" }.distinctUntilChanged()
-    val sourceLangFlow: Flow<String> = context.dataStore.data.map { it[SOURCE_LANG] ?: "en" }.distinctUntilChanged()
+    val sourceLangFlow: Flow<String> = context.dataStore.data.map { it[SOURCE_LANG] ?: "auto" }.distinctUntilChanged()
     val targetLangFlow: Flow<String> = context.dataStore.data.map { it[TARGET_LANG] ?: "pt" }.distinctUntilChanged()
     val targetDialectFlow: Flow<String> = context.dataStore.data.map { it[TARGET_DIALECT] ?: "" }.distinctUntilChanged()
     val volumeRatioFlow: Flow<Float> = context.dataStore.data.map { it[VOLUME_RATIO] ?: 1.0f }.distinctUntilChanged()
