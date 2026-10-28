@@ -308,6 +308,8 @@ class AudioDubbingForegroundService : Service() {
         settingsObservationJob?.cancel()
         settingsObservationJob = null
 
+        subtitleOcr?.stop()
+        subtitleOcr = null
         mediaProjection?.stop()
         mediaProjection = null
     }
