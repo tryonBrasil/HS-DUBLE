@@ -17,6 +17,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.alad.app.R
 import com.alad.app.core.audio.AudioCaptureManager
+import com.alad.app.core.capture.GameSubtitleOcr
 import com.alad.app.core.audio.AudioPlayerManager
 import com.alad.app.core.audio.AudioUtils
 import com.alad.app.core.network.ALADWebSocketManager
@@ -58,6 +59,7 @@ class AudioDubbingForegroundService : Service() {
 
     private var mediaProjection: MediaProjection? = null
     private var audioCaptureManager: AudioCaptureManager? = null
+    private var subtitleOcr: GameSubtitleOcr? = null
     private var audioPlayerManager: AudioPlayerManager? = null
     private var webSocketManager: ALADWebSocketManager? = null
     private var settingsObservationJob: Job? = null
