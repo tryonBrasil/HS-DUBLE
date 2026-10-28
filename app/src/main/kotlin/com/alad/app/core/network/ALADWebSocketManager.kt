@@ -31,6 +31,17 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
         private const val MAX_PENDING_AUDIO_CHUNKS = 5
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
+
+        // Keep translation instructions concise: the live stream must stay responsive on mid-range phones.
+        private const val SPEAKER_AWARE_INSTRUCTION = """
+            Translate the game dialogue faithfully into the requested target language.
+            Treat each audible speaker as a separate character. Track speaker changes from the audio and
+            keep each character's identity consistent across nearby turns. Preserve the speaker's intended
+            grammatical gender in the translated wording when the language requires it; do not guess when
+            the audio/context is ambiguous. Do not merge two speakers into one sentence, invent dialogue,
+            omit short replies, or repeat already translated words. Keep names, meaning, emotion and tone
+            faithful to the original. Prioritize complete, natural translations with low latency.
+        """
     }
 
     private val reconnectExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
@@ -197,6 +208,9 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
+                put("systemInstruction", JSONObject().apply {
+                    put("parts", JSONArray().put(JSONObject().put("text", SPEAKER_AWARE_INSTRUCTION.trimIndent())))
+                })
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
                     put("speechConfig", JSONObject().apply {
