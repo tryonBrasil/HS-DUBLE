@@ -759,8 +759,14 @@ fun MainScreen(
                                             val apkUrl = release.optJSONArray("assets")
                                                 ?.let { assets ->
                                                     (0 until assets.length()).map { assets.getJSONObject(it) }
-                                                        .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                                                        .firstOrNull {
+                                                            it.optString("name").contains("release", ignoreCase = true) &&
+                                                                it.optString("name").endsWith(".apk", ignoreCase = true)
+                                                        }
                                                         ?.optString("browser_download_url")
+                                                        ?: (0 until assets.length()).map { assets.getJSONObject(it) }
+                                                            .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+                                                            ?.optString("browser_download_url")
                                                 }.orEmpty()
                                             if (latestVersion.isBlank()) {
                                                 throw IllegalStateException("Não foi possível identificar a versão publicada.")
