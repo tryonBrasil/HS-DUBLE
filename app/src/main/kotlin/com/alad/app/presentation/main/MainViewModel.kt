@@ -25,6 +25,7 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val statusMessage: StateFlow<String> = DubbingSessionRepository.connectionStatus
     val liveSubtitleText: StateFlow<String> = DubbingSessionRepository.liveSubtitleText
     val liveSourceSubtitleText: StateFlow<String> = DubbingSessionRepository.liveSourceSubtitleText
+    val detectedSourceLanguage: StateFlow<String> = DubbingSessionRepository.detectedSourceLanguage
 
     // Audio Mixer State
     val dubbingVolume: StateFlow<Float> = DubbingSessionRepository.dubbingVolume
