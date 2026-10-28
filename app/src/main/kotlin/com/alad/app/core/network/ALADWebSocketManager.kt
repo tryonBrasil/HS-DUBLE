@@ -23,6 +23,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     var onBinaryMessageReceived: ((ByteArray) -> Unit)? = null
     var onTextMessageReceived: ((String) -> Unit)? = null
     var onSourceTextReceived: ((String) -> Unit)? = null
+    var onSourceLanguageDetected: ((String) -> Unit)? = null
     var onTurnComplete: (() -> Unit)? = null
     var onInterrupted: (() -> Unit)? = null
     var onStatusChanged: ((String) -> Unit)? = null
@@ -59,6 +60,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     }
     private var reconnectFuture: ScheduledFuture<*>? = null
     private var reconnectAttempts = 0
+    @Volatile private var lastDetectedSourceLanguage = ""
     private val audioLock = Any()
     private val pendingAudio = ArrayDeque<ByteArray>()
 
@@ -82,6 +84,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         currentVoicePersona = voicePersona
         currentDubbingMode = dubbingMode
         currentTargetDialect = targetDialect
+        lastDetectedSourceLanguage = ""
         shouldReconnect = true
         reconnectAttempts = 0
         reconnectFuture?.cancel(false)
@@ -104,7 +107,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket || !shouldReconnect) return
                 Log.d(TAG, "Connected to Gemini Live API")
                 onStatusChanged?.invoke("Connected")
-                sendGeminiSetup(webSocket, currentTargetLang, currentVoicePersona)
+                sendGeminiSetup(webSocket, currentTargetLang)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -129,6 +132,15 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                                     ?: serverContent.optJSONObject("input_transcription")
                                 inputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
                                     onSourceTextReceived?.invoke(it)
+                                }
+                                val detectedCode = inputTranscription?.let { transcription ->
+                                    transcription.optString("languageCode")
+                                        .ifBlank { transcription.optString("language_code") }
+                                }.orEmpty()
+                                if (detectedCode.isNotBlank() && detectedCode != lastDetectedSourceLanguage) {
+                                    lastDetectedSourceLanguage = detectedCode
+                                    Log.i(TAG, "Detected spoken source language: $detectedCode")
+                                    onSourceLanguageDetected?.invoke(detectedCode)
                                 }
 
                                 val parts = (serverContent.optJSONObject("modelTurn")
@@ -219,69 +231,37 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         }, delay, TimeUnit.SECONDS)
     }
 
-    private fun sendGeminiSetup(socket: WebSocket, targetLang: String, voicePersona: String) {
-        val targetLangCode = targetLang.split("-")[0]
+    private fun sendGeminiSetup(socket: WebSocket, targetLang: String) {
+        // The dedicated Live Translate model identifies the spoken source language automatically.
+        // Keep the translation target fixed; a generic Portuguese target defaults to Brazilian Portuguese.
+        val baseTargetLanguage = targetLang.substringBefore('-')
+        val targetLanguageCode = when {
+            baseTargetLanguage.equals("pt", ignoreCase = true) -> {
+                currentTargetDialect.takeIf { it == "pt-BR" || it == "pt-PT" }
+                    ?: targetLang.takeIf { it.contains('-') }
+                    ?: "pt-BR"
+            }
+            targetLang.contains('-') -> targetLang
+            else -> baseTargetLanguage
+        }
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
-                put("systemInstruction", JSONObject().apply {
-                    put("parts", JSONArray().put(JSONObject().put("text", SPEAKER_AWARE_INSTRUCTION.trimIndent())))
-                })
-                // Detect speech onset quickly, keep a little pre-roll, and wait briefly for trailing words
-                // before closing a turn. This balances fast partial translation with complete sentence endings.
-                put("realtimeInputConfig", JSONObject().apply {
-                    put("automaticActivityDetection", JSONObject().apply {
-                        put("disabled", false)
-                        put("startOfSpeechSensitivity", "START_SENSITIVITY_HIGH")
-                        put("endOfSpeechSensitivity", "END_SENSITIVITY_LOW")
-                        put("prefixPaddingMs", 160)
-                        put("silenceDurationMs", 800)
-                    })
-                })
+                // Follow the documented Live Translate config: it accepts audio input only,
+                // not system prompts, activity-detection settings, or OCR text mixed into the stream.
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
-                    put("speechConfig", JSONObject().apply {
-                        put("voiceConfig", JSONObject().apply {
-                            put("prebuiltVoiceConfig", JSONObject().apply { put("voiceName", voicePersona) })
-                        })
-                    })
+                    put("inputAudioTranscription", JSONObject())
+                    put("outputAudioTranscription", JSONObject())
                     put("translationConfig", JSONObject().apply {
-                        put("targetLanguageCode", targetLangCode)
-                        put("echoTargetLanguage", true)
+                        put("targetLanguageCode", targetLanguageCode)
+                        put("echoTargetLanguage", false)
                     })
                 })
-                put("inputAudioTranscription", JSONObject())
-                put("outputAudioTranscription", JSONObject())
-                put("sessionResumption", JSONObject().apply { put("handle", JSONObject.NULL) })
             })
         }
         if (!socket.send(setupPayload.toString())) {
             scheduleReconnect("Não foi possível enviar a configuração")
-        }
-    }
-
-    /**
-     * Sends a deduplicated on-screen subtitle as context, not as dialogue to translate.
-     * The audio stream remains the primary source of truth.
-     */
-    fun sendSubtitleContext(subtitle: String) {
-        val clean = subtitle.trim().take(500)
-        if (clean.isEmpty() || !isSetupComplete) return
-        val socket = webSocket ?: return
-        // Use realtimeInput.text, not clientContent: clientContent can interrupt ongoing
-        // model generation, cutting a dubbed sentence off whenever the on-screen caption changes.
-        val payload = JSONObject().apply {
-            put("realtimeInput", JSONObject().apply {
-                put(
-                    "text",
-                    "SCREEN SUBTITLE CONTEXT ONLY (Portuguese text visible in the game): \"$clean\". " +
-                        "This is visual context, not a spoken utterance or a request. Do not translate, repeat, or speak this text by itself. " +
-                        "Use it only to clarify the concurrent English game audio."
-                )
-            })
-        }
-        if (!socket.send(payload.toString())) {
-            Log.d(TAG, "Could not send subtitle context")
         }
     }
 
