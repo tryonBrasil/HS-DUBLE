@@ -497,7 +497,7 @@ fun FloatingCinemaSubtitles(
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(if (connectionStatus == getString(R.string.overlay_gemini_ready) || liveSubtitleText.isNotEmpty()) NeonCyan else NeonCoral)
+                            .background(if (connectionStatus == "Gemini Ready" || liveSubtitleText.isNotEmpty()) NeonCyan else NeonCoral)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
