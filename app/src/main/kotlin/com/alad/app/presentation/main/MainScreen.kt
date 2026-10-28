@@ -190,7 +190,7 @@ fun MainScreen(
                         ) {
                             Image(
                                 painter = painterResource(id = R.mipmap.ic_launcher),
-                                contentDescription = "HS Voice Translator logo",
+                                contentDescription = stringResource(R.string.app_name_full),
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -219,14 +219,14 @@ fun MainScreen(
                     ) {
                         GlassIconButton(
                             icon = Icons.Default.Info,
-                            contentDescription = "Help",
+                            contentDescription = stringResource(R.string.help_accessibility),
                             onClick = { showHelpDialog = true },
                             tint = NeonCyan
                         )
 
                         GlassIconButton(
                             icon = Icons.Default.Settings,
-                            contentDescription = "Settings",
+                            contentDescription = stringResource(R.string.settings_accessibility),
                             onClick = onNavigateToSettings,
                             tint = Color.White
                         )
@@ -301,7 +301,7 @@ fun MainScreen(
                                 }
 
                                 Text(
-                                    text = "$selectedVoice • $selectedMode",
+                                    text = "$selectedVoice • " + when (selectedMode) { com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID -> stringResource(R.string.mode_hybrid); com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY -> stringResource(R.string.mode_audio_only); com.alad.app.data.repository.UserPreferencesRepository.MODE_SUBTITLE_ONLY -> stringResource(R.string.mode_subtitle_only); else -> selectedMode },
                                     color = TextSecondary,
                                     fontSize = 11.sp
                                 )
@@ -566,7 +566,7 @@ fun MainScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (isDubbingMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Mute Dubbing",
+                                        contentDescription = stringResource(R.string.mute_dubbing),
                                         tint = if (isDubbingMuted) NeonCoral else Color.White,
                                         modifier = Modifier.size(15.dp)
                                     )
@@ -622,7 +622,7 @@ fun MainScreen(
                                 ) {
                                     Icon(
                                         imageVector = if (isOriginalMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = "Mute Original Audio",
+                                        contentDescription = stringResource(R.string.mute_original),
                                         tint = if (isOriginalMuted) NeonCoral else Color.White,
                                         modifier = Modifier.size(15.dp)
                                     )
