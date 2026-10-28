@@ -115,6 +115,9 @@ dependencies {
     // OkHttp for WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+    // On-device OCR for Portuguese subtitles visible in game captures.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+
     // Accompanist for Permissions (if needed)
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 
