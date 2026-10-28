@@ -24,6 +24,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     var onTextMessageReceived: ((String) -> Unit)? = null
     var onSourceTextReceived: ((String) -> Unit)? = null
     var onTurnComplete: (() -> Unit)? = null
+    var onInterrupted: (() -> Unit)? = null
     var onStatusChanged: ((String) -> Unit)? = null
 
     companion object {
@@ -113,30 +114,36 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                     if (json.has("serverContent") || json.has("server_content")) {
                         val serverContent = json.optJSONObject("serverContent") ?: json.optJSONObject("server_content")
                         if (serverContent != null) {
-                            val outputTranscription = serverContent.optJSONObject("outputTranscription")
-                                ?: serverContent.optJSONObject("output_transcription")
-                            outputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
-                                onTextMessageReceived?.invoke(it)
-                            }
+                            val interrupted = serverContent.optBoolean("interrupted", false)
+                            if (interrupted) {
+                                Log.i(TAG, "Live response interrupted; clearing queued speech and captions")
+                                onInterrupted?.invoke()
+                            } else {
+                                val outputTranscription = serverContent.optJSONObject("outputTranscription")
+                                    ?: serverContent.optJSONObject("output_transcription")
+                                outputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
+                                    onTextMessageReceived?.invoke(it)
+                                }
 
-                            val inputTranscription = serverContent.optJSONObject("inputTranscription")
-                                ?: serverContent.optJSONObject("input_transcription")
-                            inputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
-                                onSourceTextReceived?.invoke(it)
-                            }
+                                val inputTranscription = serverContent.optJSONObject("inputTranscription")
+                                    ?: serverContent.optJSONObject("input_transcription")
+                                inputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
+                                    onSourceTextReceived?.invoke(it)
+                                }
 
-                            val parts = (serverContent.optJSONObject("modelTurn")
-                                ?: serverContent.optJSONObject("model_turn"))?.optJSONArray("parts")
-                            if (parts != null) {
-                                for (i in 0 until parts.length()) {
-                                    val part = parts.optJSONObject(i) ?: continue
-                                    part.optString("text", "").takeIf { it.isNotEmpty() }?.let {
-                                        onTextMessageReceived?.invoke(it)
-                                    }
-                                    val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
-                                    val encoded = inlineData?.optString("data", "")
-                                    if (!encoded.isNullOrEmpty()) {
-                                        onBinaryMessageReceived?.invoke(Base64.decode(encoded, Base64.DEFAULT))
+                                val parts = (serverContent.optJSONObject("modelTurn")
+                                    ?: serverContent.optJSONObject("model_turn"))?.optJSONArray("parts")
+                                if (parts != null) {
+                                    for (i in 0 until parts.length()) {
+                                        val part = parts.optJSONObject(i) ?: continue
+                                        part.optString("text", "").takeIf { it.isNotEmpty() }?.let {
+                                            onTextMessageReceived?.invoke(it)
+                                        }
+                                        val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
+                                        val encoded = inlineData?.optString("data", "")
+                                        if (!encoded.isNullOrEmpty()) {
+                                            onBinaryMessageReceived?.invoke(Base64.decode(encoded, Base64.DEFAULT))
+                                        }
                                     }
                                 }
                             }
@@ -261,16 +268,16 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         val clean = subtitle.trim().take(500)
         if (clean.isEmpty() || !isSetupComplete) return
         val socket = webSocket ?: return
+        // Use realtimeInput.text, not clientContent: clientContent can interrupt ongoing
+        // model generation, cutting a dubbed sentence off whenever the on-screen caption changes.
         val payload = JSONObject().apply {
-            put("clientContent", JSONObject().apply {
-                put("turns", JSONArray().put(JSONObject().apply {
-                    put("role", "user")
-                    put("parts", JSONArray().put(JSONObject().put(
-                        "text",
-                        "REFERENCE ONLY — Portuguese subtitle currently visible on the game screen: \"$clean\". This is context, not spoken input. Do not repeat or voice this text; use it only to clarify the English game audio."
-                    )))
-                }))
-                put("turnComplete", false)
+            put("realtimeInput", JSONObject().apply {
+                put(
+                    "text",
+                    "SCREEN SUBTITLE CONTEXT ONLY (Portuguese text visible in the game): \"$clean\". " +
+                        "This is visual context, not a spoken utterance or a request. Do not translate, repeat, or speak this text by itself. " +
+                        "Use it only to clarify the concurrent English game audio."
+                )
             })
         }
         if (!socket.send(payload.toString())) {
