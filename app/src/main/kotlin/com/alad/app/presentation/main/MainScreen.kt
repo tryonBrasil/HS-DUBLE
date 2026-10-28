@@ -1,6 +1,7 @@
 package com.alad.app.presentation.main
 
 import android.app.DownloadManager
+import android.content.Intent
 import android.net.Uri
 import android.os.Environment
 import android.provider.Settings
