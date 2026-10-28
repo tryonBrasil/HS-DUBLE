@@ -5,7 +5,7 @@ on:
   push:
     branches: [ "main", "master" ]
     tags:
-      - 'v*' # Trigger release on tags matching v*, e.g., v1.2.0
+      - 'v*'
   pull_request:
     branches: [ "main", "master" ]
 
@@ -25,6 +25,22 @@ jobs:
         distribution: 'temurin'
         cache: gradle
 
+    - name: Restore release signing key
+      if: ${{ secrets.ALAD_KEYSTORE_BASE64 != '' }}
+      env:
+        ALAD_KEYSTORE_BASE64: ${{ secrets.ALAD_KEYSTORE_BASE64 }}
+      run: |
+        printf '%s' "$ALAD_KEYSTORE_BASE64" | base64 --decode > alad-release.jks
+        test -s alad-release.jks
+
+    - name: Require signing key for version releases
+      if: startsWith(github.ref, 'refs/tags/v')
+      run: |
+        if [ ! -s alad-release.jks ]; then
+          echo "::error::Release signing key missing. Add the existing alad-release.jks as the ALAD_KEYSTORE_BASE64 GitHub Actions secret."
+          exit 1
+        fi
+
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
@@ -34,11 +50,12 @@ jobs:
     - name: Upload APK artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: alad-apks
+        name: hs-duble-apks
         path: app/build/outputs/apk/**/*.apk
+        if-no-files-found: error
 
   release:
-    name: Create GitHub Release
+    name: Publish signed APK
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -47,13 +64,23 @@ jobs:
     - name: Download APK from build job
       uses: actions/download-artifact@v4
       with:
-        name: alad-apks
+        name: hs-duble-apks
+        path: downloaded-apks
 
-    - name: Release APK
+    - name: Prepare stable APK asset
+      run: |
+        APK="$(find downloaded-apks -type f -path '*/release/app-release.apk' -print -quit)"
+        if [ -z "$APK" ]; then
+          echo "::error::Release APK was not found."
+          find downloaded-apks -type f
+          exit 1
+        fi
+        cp "$APK" hs-duble.apk
+
+    - name: Publish GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-          **/*.apk
+        files: hs-duble.apk
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
