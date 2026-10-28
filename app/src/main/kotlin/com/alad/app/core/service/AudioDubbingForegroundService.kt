@@ -102,14 +102,14 @@ class AudioDubbingForegroundService : Service() {
 
     private fun startDubbing(resultCode: Int, data: Intent) {
         DubbingSessionRepository.setDubbingRunning(true)
-        DubbingSessionRepository.setConnectionStatus("Initializing...")
+        DubbingSessionRepository.setConnectionStatus(getString(R.string.status_initializing))
         DubbingSessionRepository.clearSubtitle()
 
         val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val projection = projectionManager.getMediaProjection(resultCode, data)
         if (projection == null) {
             Log.e(TAG, "Failed to get MediaProjection! ResultCode: $resultCode")
-            DubbingSessionRepository.setConnectionStatus("Capture Denied")
+            DubbingSessionRepository.setConnectionStatus(getString(R.string.status_capture_denied))
             DubbingSessionRepository.setDubbingRunning(false)
             return
         }
