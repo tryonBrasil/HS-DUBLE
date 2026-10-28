@@ -11,8 +11,8 @@ android {
         applicationId = "com.alad.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 7
-        versionName = "1.2.3"
+        versionCode = 8
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -28,6 +28,7 @@ android {
                 ?: System.getenv("HS_STORE_PASSWORD")
             val keyAliasValue = project.findProperty("HS_KEY_ALIAS")?.toString()
                 ?: System.getenv("HS_KEY_ALIAS")
+
             val keyPasswordValue = project.findProperty("HS_KEY_PASSWORD")?.toString()
                 ?: System.getenv("HS_KEY_PASSWORD")
 
@@ -95,7 +96,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    
+
     // Compose
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
@@ -104,10 +105,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
     // DataStore (Standard Preferences)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 
