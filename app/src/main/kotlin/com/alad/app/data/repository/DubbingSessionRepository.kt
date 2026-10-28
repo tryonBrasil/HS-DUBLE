@@ -92,20 +92,12 @@ object DubbingSessionRepository {
     }
 
     fun appendSubtitleText(textChunk: String) {
-        val trimmed = textChunk.trim()
-        if (trimmed.isEmpty()) return
-
+        // Gemini transcription events are deltas; preserve their exact whitespace and repetitions.
+        if (textChunk.isEmpty()) return
         silenceJob?.cancel()
-
-        if (isNewTurn) {
-            isNewTurn = false
-            _liveSubtitleText.value = trimmed
-            return
-        }
-
-        _liveSubtitleText.value = limitSubtitleText(
-            mergeStreamingText(_liveSubtitleText.value, trimmed)
-        )
+        val base = if (isNewTurn) "" else _liveSubtitleText.value
+        isNewTurn = false
+        _liveSubtitleText.value = (base + textChunk).takeLast(300)
     }
 
     fun appendSourceSubtitleText(textChunk: String) {
