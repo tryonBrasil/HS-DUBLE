@@ -38,6 +38,10 @@ object DubbingSessionRepository {
     private val _liveSourceSubtitleText = MutableStateFlow("")
     val liveSourceSubtitleText: StateFlow<String> = _liveSourceSubtitleText.asStateFlow()
 
+    // Source language reported by Gemini Live Translate (for example, "ja" or "ja-JP").
+    private val _detectedSourceLanguage = MutableStateFlow("")
+    val detectedSourceLanguage: StateFlow<String> = _detectedSourceLanguage.asStateFlow()
+
     private val _isSubtitleOverlayVisible = MutableStateFlow(true)
     val isSubtitleOverlayVisible: StateFlow<Boolean> = _isSubtitleOverlayVisible.asStateFlow()
 
@@ -62,6 +66,7 @@ object DubbingSessionRepository {
         if (!running) {
             _audioAmplitude.value = 0f
             _connectionStatus.value = "Disconnected"
+            _detectedSourceLanguage.value = ""
             clearSubtitle()
         }
     }
@@ -72,6 +77,10 @@ object DubbingSessionRepository {
 
     fun setConnectionStatus(status: String) {
         _connectionStatus.value = status
+    }
+
+    fun setDetectedSourceLanguage(languageCode: String) {
+        _detectedSourceLanguage.value = languageCode.trim()
     }
 
     fun appendSubtitleText(textChunk: String) {
@@ -210,6 +219,7 @@ object DubbingSessionRepository {
         _isDubbingRunning.value = false
         _audioAmplitude.value = 0f
         _connectionStatus.value = "Disconnected"
+        _detectedSourceLanguage.value = ""
         clearSubtitle()
     }
 }
