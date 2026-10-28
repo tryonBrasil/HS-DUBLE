@@ -19,5 +19,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ALAD Mobile"
+rootProject.name = "HS Voice Translator"
 include(":app")
