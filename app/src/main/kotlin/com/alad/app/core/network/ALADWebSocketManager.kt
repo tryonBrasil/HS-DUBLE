@@ -130,9 +130,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                                 if (parts != null) {
                                     for (i in 0 until parts.length()) {
                                         val part = parts.optJSONObject(i) ?: continue
-                                        part.optString("text", "").takeIf { it.isNotEmpty() }?.let {
-                                            onTextMessageReceived?.invoke(it)
-                                        }
+                                        // Translated captions come only from outputTranscription above.
+                                        // modelTurn.parts.text is not guaranteed to be speech transcription.
                                         val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
                                         val encoded = inlineData?.optString("data", "")
                                         if (!encoded.isNullOrEmpty()) {
