@@ -152,10 +152,6 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     private fun sendGeminiSetup(targetLang: String, voicePersona: String, dubbingMode: String, targetDialect: String) {
         val targetLangCode = targetLang.split("-")[0]
 
-        val dialectInstruction = com.alad.app.presentation.main.supportedDialects[targetLangCode]
-            ?.find { it.code.equals(targetDialect, ignoreCase = true) }
-            ?.promptInstruction ?: if (targetDialect.isNotEmpty()) "Speak and translate in $targetDialect dialect" else ""
-
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
@@ -176,13 +172,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                     })
                 })
 
-                if (dialectInstruction.isNotEmpty()) {
-                    put("systemInstruction", JSONObject().apply {
-                        put("parts", JSONArray().put(JSONObject().apply {
-                            put("text", "You are an expert real-time AI live audio dubber. $dialectInstruction. Maintain natural pacing and high clarity.")
-                        }))
-                    })
-                }
+                // O modelo Live Translate é dedicado à tradução e não aceita systemInstruction.
+                // O idioma de destino é definido em translationConfig.targetLanguageCode.
 
                 // Direct children of BidiGenerateContentSetup according to Google Gemini Live API specification
                 put("inputAudioTranscription", JSONObject())
