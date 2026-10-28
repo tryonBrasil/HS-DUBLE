@@ -103,27 +103,9 @@ object DubbingSessionRepository {
             return
         }
 
-        val current = _liveSubtitleText.value
-        val updated = if (current.isEmpty()) {
-            trimmed
-        } else if (trimmed.startsWith(current, ignoreCase = true)) {
-            trimmed
-        } else if (current.startsWith(trimmed, ignoreCase = true) || current.endsWith(trimmed, ignoreCase = true)) {
-            current
-        } else {
-            if (current.endsWith(" ") || trimmed.startsWith(" ") || trimmed.startsWith(",") || trimmed.startsWith(".")) {
-                current + trimmed
-            } else {
-                "$current $trimmed"
-            }
-        }
-
-        _liveSubtitleText.value = if (updated.length > 180) {
-            val spaceIndex = updated.indexOf(' ', updated.length - 130)
-            if (spaceIndex != -1) updated.substring(spaceIndex + 1) else updated.takeLast(130)
-        } else {
-            updated
-        }
+        _liveSubtitleText.value = limitSubtitleText(
+            mergeStreamingText(_liveSubtitleText.value, trimmed)
+        )
     }
 
     fun appendSourceSubtitleText(textChunk: String) {
@@ -138,27 +120,59 @@ object DubbingSessionRepository {
             return
         }
 
-        val current = _liveSourceSubtitleText.value
-        val updated = if (current.isEmpty()) {
-            trimmed
-        } else if (trimmed.startsWith(current, ignoreCase = true)) {
-            trimmed
-        } else if (current.startsWith(trimmed, ignoreCase = true) || current.endsWith(trimmed, ignoreCase = true)) {
-            current
-        } else {
-            if (current.endsWith(" ") || trimmed.startsWith(" ") || trimmed.startsWith(",") || trimmed.startsWith(".")) {
-                current + trimmed
-            } else {
-                "$current $trimmed"
+        _liveSourceSubtitleText.value = limitSubtitleText(
+            mergeStreamingText(_liveSourceSubtitleText.value, trimmed)
+        )
+    }
+
+    /**
+     * Merges streaming caption updates without repeating words when the API emits
+     * overlapping partial/final transcripts during the same turn.
+     */
+    private fun mergeStreamingText(currentText: String, incomingText: String): String {
+        val current = currentText.trim()
+        val incoming = incomingText.trim()
+        if (incoming.isEmpty()) return currentText
+        if (current.isEmpty()) return incoming
+
+        // Some updates contain the full accumulated sentence; others contain only a delta.
+        if (incoming.startsWith(current, ignoreCase = true)) return incoming
+        if (current.startsWith(incoming, ignoreCase = true) ||
+            current.endsWith(incoming, ignoreCase = true)
+        ) return current
+
+        // Remove the largest whole-word overlap, e.g. "오늘은" in
+        // "안녕하세요 오늘은" + "오늘은 게임을 시작하겠습니다".
+        val currentWords = current.split(Regex("\\s+"))
+        val incomingWords = incoming.split(Regex("\\s+"))
+        val maxOverlap = minOf(currentWords.size, incomingWords.size)
+        for (overlap in maxOverlap downTo 1) {
+            val currentTail = currentWords.takeLast(overlap).joinToString(" ")
+            val incomingHead = incomingWords.take(overlap).joinToString(" ")
+            if (currentTail.equals(incomingHead, ignoreCase = true)) {
+                val remainder = incomingWords.drop(overlap).joinToString(" ")
+                if (remainder.isEmpty()) return current
+                return appendCaptionText(current, remainder)
             }
         }
 
-        _liveSourceSubtitleText.value = if (updated.length > 180) {
-            val spaceIndex = updated.indexOf(' ', updated.length - 130)
-            if (spaceIndex != -1) updated.substring(spaceIndex + 1) else updated.takeLast(130)
-        } else {
-            updated
-        }
+        return appendCaptionText(current, incoming)
+    }
+
+    private fun appendCaptionText(current: String, next: String): String {
+        if (next.isBlank()) return current
+        val punctuation = setOf(',', '.', '!', '?', ':', ';', '…', '。', '！', '？', '،')
+        val needsSpace = current.isNotEmpty() &&
+            !current.last().isWhitespace() &&
+            !next.first().isWhitespace() &&
+            next.first() !in punctuation
+        return if (needsSpace) "$current $next" else current + next
+    }
+
+    private fun limitSubtitleText(updated: String): String {
+        if (updated.length <= 180) return updated
+        val spaceIndex = updated.indexOf(' ', updated.length - 130)
+        return if (spaceIndex != -1) updated.substring(spaceIndex + 1) else updated.takeLast(130)
     }
 
     fun onTurnComplete() {
