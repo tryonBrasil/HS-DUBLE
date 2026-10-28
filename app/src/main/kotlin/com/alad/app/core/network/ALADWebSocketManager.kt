@@ -35,24 +35,6 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         private const val MAX_PENDING_AUDIO_CHUNKS = 50
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
-        // Keep translation instructions concise: the live stream must stay responsive on mid-range phones.
-        private const val SPEAKER_AWARE_INSTRUCTION = """
-            Translate game dialogue faithfully into the requested target language with low latency.
-            Continuously distinguish speakers using changes in vocal timbre, pitch range, resonance, accent,
-            rhythm and speaking style; do not treat loudness alone as a new speaker. Keep a lightweight,
-            consistent internal speaker map across nearby turns so replies from the same character remain
-            associated with that voice, and never merge overlapping or consecutive characters into one line.
-            For each utterance, estimate the audible vocal presentation as masculine, feminine, or uncertain
-            only when the voice provides enough evidence. Use that estimate and the dialogue context to preserve
-            grammatical gender where the target language requires it, but never present an uncertain guess as fact.
-            Preserve vocal delivery and prosody: distinguish calm speech, excitement, anger, sadness, fear,
-            surprise, questions, shouting and whispering when audible, without inventing emotion.
-            Translate the meaning and intent, not just individual words; keep names and short replies, avoid
-            repetition, and never add speaker labels or analysis to the spoken translation unless explicitly asked.
-            Begin streaming partial translation as soon as reliable speech is available. Keep listening through
-            pauses, include the final words when a character stops speaking, and do not wait unnecessarily for
-            the whole scene to finish. Prioritize speaker consistency, completeness and natural spoken output.
-        """
     }
 
     private val reconnectExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
@@ -66,7 +48,6 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
 
     @Volatile private var currentApiKey = ""
     @Volatile private var currentTargetLang = "pt-BR"
-    @Volatile private var currentVoicePersona = "Puck"
     @Volatile private var currentDubbingMode = "HYBRID"
     @Volatile private var currentTargetDialect = ""
 
@@ -81,7 +62,6 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     ) {
         currentApiKey = apiKey
         currentTargetLang = targetLang
-        currentVoicePersona = voicePersona
         currentDubbingMode = dubbingMode
         currentTargetDialect = targetDialect
         lastDetectedSourceLanguage = ""
