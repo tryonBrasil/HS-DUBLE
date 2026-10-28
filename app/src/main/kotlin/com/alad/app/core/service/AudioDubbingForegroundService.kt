@@ -138,6 +138,7 @@ class AudioDubbingForegroundService : Service() {
                 val repository = UserPreferencesRepository(applicationContext)
 
                 val apiKey = repository.apiKeyFlow.first()
+                val sourceLang = repository.sourceLangFlow.first()
                 val targetLang = repository.targetLangFlow.first()
                 val targetDialect = repository.targetDialectFlow.first()
                 val volumeRatio = repository.volumeRatioFlow.first()
@@ -208,7 +209,7 @@ class AudioDubbingForegroundService : Service() {
 
                 webSocketManager?.connect(
                     apiKey = apiKey,
-                    sourceLang = "",
+                    sourceLang = sourceLang,
                     targetLang = targetLang,
                     voicePersona = voicePersona,
                     dubbingMode = dubbingMode,
@@ -252,15 +253,18 @@ class AudioDubbingForegroundService : Service() {
                         }
                     }
 
-                    // 5. Reconnect WebSocket ONLY when target language or dialect genuinely changes
+                    // 5. Reconnect when the source language, target language, or dialect changes.
                     launch {
+                        var activeSourceLang = sourceLang
                         var activeLang = targetLang
                         var activeDialect = targetDialect
                         kotlinx.coroutines.flow.combine(
+                            repository.sourceLangFlow,
                             repository.targetLangFlow,
                             repository.targetDialectFlow
-                        ) { lang, dialect -> Pair(lang, dialect) }.collect { (newLang, newDialect) ->
-                            if (newLang != activeLang || newDialect != activeDialect) {
+                        ) { source, lang, dialect -> Triple(source, lang, dialect) }.collect { (newSourceLang, newLang, newDialect) ->
+                            if (newSourceLang != activeSourceLang || newLang != activeLang || newDialect != activeDialect) {
+                                activeSourceLang = newSourceLang
                                 activeLang = newLang
                                 activeDialect = newDialect
                                 val currentKey = repository.apiKeyFlow.first()
@@ -269,7 +273,7 @@ class AudioDubbingForegroundService : Service() {
                                 webSocketManager?.disconnect()
                                 webSocketManager?.connect(
                                     apiKey = currentKey,
-                                    sourceLang = "",
+                                    sourceLang = newSourceLang,
                                     targetLang = newLang,
                                     voicePersona = currentVoice,
                                     dubbingMode = currentMode,
