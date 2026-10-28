@@ -75,6 +75,8 @@ class AudioCaptureManager {
                 android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
                 val buffer = ByteArray(CHUNK_SIZE)
                 var chunksRead = 0
+                val captureStartedAt = android.os.SystemClock.elapsedRealtime()
+                var warnedNoAudio = false
                 while (isRecording) {
                     val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
                     if (read > 0) {
@@ -83,10 +85,17 @@ class AudioCaptureManager {
                             Log.d(TAG, "Captured 100 chunks of size $read ($CHUNK_SIZE expected)")
                         }
                         val chunk = buffer.copyOf(read)
-                        if (!audioSignalDetected && AudioUtils.calculateRms(chunk) >= 250f) {
+                        val rms = AudioUtils.calculateRms(chunk)
+                        if (!audioSignalDetected && rms >= 250f) {
                             audioSignalDetected = true
-                            Log.i(TAG, "Non-silent game audio detected")
-                            onCaptureStatus?.invoke("Áudio do jogo detectado")
+                            Log.i(TAG, "Non-silent game audio detected (RMS=$rms)")
+                            onCaptureStatus?.invoke("Áudio do jogo detectado (sinal RMS ${rms.toInt()})")
+                        } else if (!audioSignalDetected && !warnedNoAudio &&
+                            android.os.SystemClock.elapsedRealtime() - captureStartedAt >= 10_000L) {
+                            warnedNoAudio = true
+                            val warning = "Nenhum áudio detectado após 10 s. Confirme o volume do jogo e se ele permite captura interna."
+                            Log.w(TAG, warning)
+                            onCaptureStatus?.invoke(warning)
                         }
                         onAudioData(chunk)
                     } else if (read < 0) {
