@@ -106,6 +106,7 @@ fun MainScreen(
     val sourceLang by viewModel.sourceLang.collectAsState()
     val targetLang by viewModel.targetLang.collectAsState()
     val targetDialect by viewModel.targetDialect.collectAsState()
+    val screenSubtitleMode by viewModel.screenSubtitleMode.collectAsState()
 
     val dubbingVol by viewModel.dubbingVolume.collectAsState()
     val isDubbingMuted by viewModel.isDubbingMuted.collectAsState()
@@ -531,6 +532,43 @@ fun MainScreen(
                             color = TextSecondary,
                             fontSize = 12.sp,
                             lineHeight = 17.sp
+                        )
+                    }
+                }
+
+                // Screen-subtitle OCR mode translates the actual text visible in the game instead of guessing from audio.
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(22.dp),
+                    borderColor = NeonCyan,
+                    borderAlpha = 0.28f
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.screen_subtitle_mode),
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = stringResource(R.string.screen_subtitle_mode_desc),
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Switch(
+                            checked = screenSubtitleMode,
+                            onCheckedChange = { viewModel.updateScreenSubtitleMode(it) },
+                            enabled = !isConnected
                         )
                     }
                 }

@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
+import android.speech.tts.TextToSpeech
+import android.os.SystemClock
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -32,6 +34,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
+import java.util.Locale
 
 class AudioDubbingForegroundService : Service() {
 
@@ -61,6 +64,10 @@ class AudioDubbingForegroundService : Service() {
     private var audioPlayerManager: AudioPlayerManager? = null
     private var webSocketManager: ALADWebSocketManager? = null
     private var settingsObservationJob: Job? = null
+    private var screenSubtitleCaptureManager: ScreenSubtitleCaptureManager? = null
+    private var screenSubtitleTts: TextToSpeech? = null
+    @Volatile private var screenSubtitleTtsReady = false
+    @Volatile private var pendingScreenSpeech: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -148,6 +155,7 @@ class AudioDubbingForegroundService : Service() {
                 val voicePersona = repository.voicePersonaFlow.first()
                 val dubbingMode = repository.dubbingModeFlow.first()
                 val showDualSubtitles = repository.showDualSubtitlesFlow.first()
+                val screenSubtitleMode = repository.screenSubtitleModeFlow.first()
 
                 // Sync repository values into the active session
                 DubbingSessionRepository.setDubbingVolume(volumeRatio)
@@ -156,6 +164,33 @@ class AudioDubbingForegroundService : Service() {
                 DubbingSessionRepository.setOriginalMuted(isOriginalMuted)
                 DubbingSessionRepository.setShowDualSubtitles(showDualSubtitles)
 
+                if (screenSubtitleMode) {
+                    DubbingSessionRepository.setDetectedSourceLanguage("")
+                    initializeScreenSubtitleTts(
+                        targetLang,
+                        dubbingMode != UserPreferencesRepository.MODE_SUBTITLE_ONLY
+                    )
+                    screenSubtitleCaptureManager = ScreenSubtitleCaptureManager(
+                        context = applicationContext,
+                        projection = projection,
+                        apiKey = apiKey,
+                        targetLanguage = targetLang,
+                        targetDialect = targetDialect,
+                        onSourceText = { text ->
+                            DubbingSessionRepository.setScreenSourceText(text)
+                        },
+                        onTranslatedText = { text ->
+                            DubbingSessionRepository.setScreenTranslatedText(text)
+                            if (dubbingMode != UserPreferencesRepository.MODE_SUBTITLE_ONLY) {
+                                speakScreenSubtitle(text)
+                            }
+                        },
+                        onStatus = { status ->
+                            DubbingSessionRepository.setConnectionStatus(status)
+                            DubbingSessionRepository.setAudioCaptureStatus(status)
+                        }
+                    ).also { it.start() }
+                } else {
                 val okHttpClient = OkHttpClient.Builder()
                     .pingInterval(15, TimeUnit.SECONDS)
                     .retryOnConnectionFailure(true)
@@ -302,6 +337,7 @@ class AudioDubbingForegroundService : Service() {
                         }
                     )
                 }
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during dubbing session startup", e)
                 DubbingSessionRepository.setConnectionStatus("Error: ${e.message}")
@@ -309,8 +345,64 @@ class AudioDubbingForegroundService : Service() {
         }
     }
 
+    private fun initializeScreenSubtitleTts(targetLang: String, shouldSpeak: Boolean) {
+        screenSubtitleTts?.stop()
+        screenSubtitleTts?.shutdown()
+        screenSubtitleTts = null
+        screenSubtitleTtsReady = false
+        pendingScreenSpeech = null
+        if (!shouldSpeak) return
+
+        screenSubtitleTts = TextToSpeech(applicationContext) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                val locale = if (targetLang.substringBefore('-').equals("pt", ignoreCase = true)) {
+                    Locale("pt", "BR")
+                } else {
+                    Locale.forLanguageTag(targetLang)
+                }
+                val languageResult = screenSubtitleTts?.setLanguage(locale) ?: TextToSpeech.LANG_NOT_SUPPORTED
+                screenSubtitleTtsReady = languageResult != TextToSpeech.LANG_NOT_SUPPORTED &&
+                    languageResult != TextToSpeech.LANG_MISSING_DATA
+                screenSubtitleTts?.setSpeechRate(1.0f)
+                val pending = pendingScreenSpeech
+                if (screenSubtitleTtsReady && !pending.isNullOrBlank()) {
+                    pendingScreenSpeech = null
+                    speakScreenSubtitle(pending)
+                }
+            } else {
+                Log.w(TAG, "Android text-to-speech initialization failed: $status")
+            }
+        }
+    }
+
+    private fun speakScreenSubtitle(text: String) {
+        Handler(Looper.getMainLooper()).post {
+            val trimmed = text.trim()
+            if (trimmed.isEmpty()) return@post
+            if (!screenSubtitleTtsReady) {
+                pendingScreenSpeech = trimmed
+                return@post
+            }
+            screenSubtitleTts?.speak(
+                trimmed,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "hs-screen-subtitle-${SystemClock.elapsedRealtime()}"
+            )
+        }
+    }
+
     private fun stopDubbing() {
         DubbingSessionRepository.resetSession()
+
+        screenSubtitleCaptureManager?.stop()
+        screenSubtitleCaptureManager = null
+
+        screenSubtitleTtsReady = false
+        pendingScreenSpeech = null
+        screenSubtitleTts?.stop()
+        screenSubtitleTts?.shutdown()
+        screenSubtitleTts = null
 
         audioCaptureManager?.stopCapture()
         audioCaptureManager = null

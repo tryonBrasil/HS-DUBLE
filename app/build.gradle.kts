@@ -11,8 +11,8 @@ android {
         applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 24
-        versionName = "1.3.14"
+        versionCode = 25
+        versionName = "1.3.15"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -115,7 +115,9 @@ dependencies {
     // OkHttp for WebSocket
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
-    // On-device OCR for Portuguese subtitles visible in game captures.
+    // On-device OCR: process the lower game-screen area locally; only recognized text is sent for translation.
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
 
     // Accompanist for Permissions (if needed)
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")

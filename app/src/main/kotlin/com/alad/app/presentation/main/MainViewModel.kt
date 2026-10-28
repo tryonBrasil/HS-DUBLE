@@ -50,6 +50,9 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
     val voicePersona: StateFlow<String> = repository.voicePersonaFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Puck")
 
+    val screenSubtitleMode: StateFlow<Boolean> = repository.screenSubtitleModeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     init {
         viewModelScope.launch(exceptionHandler) {
             try {
@@ -69,6 +72,16 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
                 }
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Error reading showDualSubtitles", e)
+            }
+        }
+    }
+
+    fun updateScreenSubtitleMode(enabled: Boolean) {
+        viewModelScope.launch(exceptionHandler) {
+            try {
+                repository.updateScreenSubtitleMode(enabled)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Failed to update screen subtitle mode", e)
             }
         }
     }

@@ -42,6 +42,8 @@
     <string name="subtitles_preview">Transcrição da tradução ao vivo</string>
     <string name="subtitles_waiting">Aguardando fala...</string>
     <string name="audio_mixer">Mixer de áudio duplo</string>
+    <string name="screen_subtitle_mode">Traduzir legenda que aparece no jogo (OCR)</string>
+    <string name="screen_subtitle_mode_desc">Lê o texto da parte inferior da tela e traduz esse texto em vez de traduzir apenas a voz. Ative antes de iniciar a captura.</string>
     <string name="dubbed_voice_volume">Voz traduzida por IA</string>
     <string name="original_media_volume">Áudio original</string>
     <string name="target_dialect">Sotaque ou dialeto regional</string>

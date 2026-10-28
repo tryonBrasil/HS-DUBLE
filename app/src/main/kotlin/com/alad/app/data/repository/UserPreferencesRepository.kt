@@ -25,6 +25,7 @@ class UserPreferencesRepository(private val context: Context) {
         val VOICE_PERSONA = stringPreferencesKey("voice_persona")
         val DUBBING_MODE = stringPreferencesKey("dubbing_mode")
         val SHOW_DUAL_SUBTITLES = booleanPreferencesKey("show_dual_subtitles")
+        val SCREEN_SUBTITLE_MODE = booleanPreferencesKey("screen_subtitle_mode")
 
         const val MODE_HYBRID = "HYBRID"               // Voice dubbing + Live subtitles
         const val MODE_AUDIO_ONLY = "AUDIO_ONLY"       // Voice dubbing only
@@ -51,6 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
     val voicePersonaFlow: Flow<String> = context.dataStore.data.map { it[VOICE_PERSONA] ?: "Puck" }.distinctUntilChanged()
     val dubbingModeFlow: Flow<String> = context.dataStore.data.map { it[DUBBING_MODE] ?: MODE_HYBRID }.distinctUntilChanged()
     val showDualSubtitlesFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DUAL_SUBTITLES] ?: true }.distinctUntilChanged()
+    val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: false }.distinctUntilChanged()
 
     suspend fun updateWsUrl(url: String) { context.dataStore.edit { it[WS_URL] = url } }
     suspend fun updateApiKey(key: String) { context.dataStore.edit { it[API_KEY] = key } }
@@ -64,4 +66,5 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun updateVoicePersona(voice: String) { context.dataStore.edit { it[VOICE_PERSONA] = voice } }
     suspend fun updateDubbingMode(mode: String) { context.dataStore.edit { it[DUBBING_MODE] = mode } }
     suspend fun updateShowDualSubtitles(show: Boolean) { context.dataStore.edit { it[SHOW_DUAL_SUBTITLES] = show } }
+    suspend fun updateScreenSubtitleMode(enabled: Boolean) { context.dataStore.edit { it[SCREEN_SUBTITLE_MODE] = enabled } }
 }

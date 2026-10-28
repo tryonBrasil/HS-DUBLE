@@ -175,6 +175,42 @@ object DubbingSessionRepository {
         return if (spaceIndex != -1) updated.substring(spaceIndex + 1) else updated.takeLast(130)
     }
 
+    /**
+     * OCR-mode captions replace the previous line instead of appending streaming audio deltas.
+     */
+    fun setScreenSourceText(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        silenceJob?.cancel()
+        isNewTurn = true
+        isNewSourceTurn = true
+        _liveSourceSubtitleText.value = trimmed
+        _liveSubtitleText.value = ""
+        silenceJob = repositoryScope.launch {
+            delay(8000)
+            if (_liveSourceSubtitleText.value == trimmed && _liveSubtitleText.value.isBlank()) {
+                _liveSourceSubtitleText.value = ""
+            }
+        }
+    }
+
+    fun setScreenTranslatedText(text: String) {
+        val trimmed = text.trim()
+        if (trimmed.isEmpty()) return
+        silenceJob?.cancel()
+        isNewTurn = true
+        isNewSourceTurn = true
+        _liveSubtitleText.value = trimmed
+        val expectedSource = _liveSourceSubtitleText.value
+        silenceJob = repositoryScope.launch {
+            delay(6500)
+            if (_liveSourceSubtitleText.value == expectedSource && _liveSubtitleText.value == trimmed) {
+                _liveSubtitleText.value = ""
+                _liveSourceSubtitleText.value = ""
+            }
+        }
+    }
+
     fun onTurnComplete() {
         isNewTurn = true
         isNewSourceTurn = true
