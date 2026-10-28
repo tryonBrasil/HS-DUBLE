@@ -313,7 +313,7 @@ fun FloatingControllerCapsule(
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Start Dubbing",
+                        contentDescription = getString(R.string.overlay_start_dubbing),
                         tint = Color.White,
                         modifier = Modifier.size(17.dp)
                     )
@@ -374,7 +374,7 @@ fun FloatingControllerCapsule(
             ) {
                 Icon(
                     imageVector = if (isDubbingMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = "Toggle Mute",
+                    contentDescription = getString(R.string.overlay_toggle_mute),
                     tint = if (isDubbingMuted) NeonCoral else Color.White.copy(alpha = 0.85f),
                     modifier = Modifier.size(14.dp)
                 )
@@ -398,7 +398,7 @@ fun FloatingControllerCapsule(
             ) {
                 Icon(
                     imageVector = if (isSubtitleVisible) Icons.Default.Subtitles else Icons.Default.VisibilityOff,
-                    contentDescription = "Toggle Subtitles",
+                    contentDescription = getString(R.string.overlay_toggle_subtitles),
                     tint = if (isSubtitleVisible) NeonCyan else Color.White.copy(alpha = 0.5f),
                     modifier = Modifier.size(14.dp)
                 )
@@ -421,7 +421,7 @@ fun FloatingControllerCapsule(
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Close Widget",
+                contentDescription = getString(R.string.overlay_close_widget),
                 tint = Color.White.copy(alpha = 0.75f),
                 modifier = Modifier.size(13.dp)
             )
@@ -439,7 +439,7 @@ fun FloatingCinemaSubtitles(
     val showDualSubtitles by DubbingSessionRepository.showDualSubtitles.collectAsState()
     val connectionStatus by DubbingSessionRepository.connectionStatus.collectAsState()
 
-    val infiniteTransition = rememberInfiniteTransition(label = "listening")
+    val infiniteTransition = rememberInfiniteTransition(label = getString(R.string.overlay_listening))
     val listeningAlpha by infiniteTransition.animateFloat(
         initialValue = 0.4f,
         targetValue = 1f,
@@ -497,11 +497,11 @@ fun FloatingCinemaSubtitles(
                         modifier = Modifier
                             .size(7.dp)
                             .clip(CircleShape)
-                            .background(if (connectionStatus == "Gemini Ready" || liveSubtitleText.isNotEmpty()) NeonCyan else NeonCoral)
+                            .background(if (connectionStatus == getString(R.string.overlay_gemini_ready) || liveSubtitleText.isNotEmpty()) NeonCyan else NeonCoral)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "ALAD SUBTITLES",
+                        text = getString(R.string.overlay_subtitles_title),
                         color = NeonCyan,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -528,7 +528,7 @@ fun FloatingCinemaSubtitles(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Hide Subtitles",
+                        contentDescription = getString(R.string.overlay_hide_subtitles),
                         tint = TextSecondary,
                         modifier = Modifier.size(12.dp)
                     )
