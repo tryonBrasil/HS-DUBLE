@@ -47,6 +47,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     private val pendingAudio = ArrayDeque<ByteArray>()
 
     @Volatile private var currentApiKey = ""
+    @Volatile private var currentSourceLang = "auto"
     @Volatile private var currentTargetLang = "pt-BR"
     @Volatile private var currentDubbingMode = "HYBRID"
     @Volatile private var currentTargetDialect = ""
@@ -61,6 +62,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         targetDialect: String = ""
     ) {
         currentApiKey = apiKey
+        currentSourceLang = sourceLang.ifBlank { "auto" }
         currentTargetLang = targetLang
         currentDubbingMode = dubbingMode
         currentTargetDialect = targetDialect
@@ -87,7 +89,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket || !shouldReconnect) return
                 Log.d(TAG, "Connected to Gemini Live API")
                 onStatusChanged?.invoke("Connected")
-                sendGeminiSetup(webSocket, currentTargetLang)
+                sendGeminiSetup(webSocket, currentSourceLang, currentTargetLang)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -219,7 +221,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         }, delay, TimeUnit.SECONDS)
     }
 
-    private fun sendGeminiSetup(socket: WebSocket, targetLang: String) {
+    private fun sendGeminiSetup(socket: WebSocket, sourceLang: String, targetLang: String) {
         // The dedicated Live Translate model identifies the spoken source language automatically.
         // Keep the translation target fixed; a generic Portuguese target defaults to Brazilian Portuguese.
         val baseTargetLanguage = targetLang.substringBefore('-')
@@ -232,6 +234,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             targetLang.contains('-') -> targetLang
             else -> baseTargetLanguage
         }
+        val sourceLanguageHint = sourceLang.trim().takeUnless { it.isBlank() || it.equals("auto", ignoreCase = true) }
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
@@ -239,7 +242,9 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                 // not system prompts, activity-detection settings, or OCR text mixed into the stream.
                 // The active v1beta WebSocket schema expects transcription settings directly under setup.
                 // Putting them in generationConfig is rejected with close code 1007 (unknown field).
-                put("inputAudioTranscription", JSONObject())
+                put("inputAudioTranscription", JSONObject().apply {
+                    sourceLanguageHint?.let { put("languageCodes", JSONArray().put(it)) }
+                })
                 put("outputAudioTranscription", JSONObject())
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
