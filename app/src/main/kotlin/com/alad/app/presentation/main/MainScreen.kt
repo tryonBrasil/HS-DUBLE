@@ -74,6 +74,10 @@ fun MainScreen(
     val amplitude by viewModel.audioAmplitude.collectAsState()
     val liveSubtitleText by viewModel.liveSubtitleText.collectAsState()
     val liveSourceSubtitleText by viewModel.liveSourceSubtitleText.collectAsState()
+    val detectedSourceLanguage by viewModel.detectedSourceLanguage.collectAsState()
+    val detectedSourceLanguageLabel = supportedLanguages
+        .find { it.first.equals(detectedSourceLanguage.substringBefore('-'), ignoreCase = true) }
+        ?.second ?: detectedSourceLanguage
     val showDualSubtitles by viewModel.showDualSubtitles.collectAsState()
     val selectedVoice by viewModel.voicePersona.collectAsState()
     val selectedMode by viewModel.dubbingMode.collectAsState()
@@ -380,6 +384,21 @@ fun MainScreen(
                                 Text(
                                     text = "$selectedVoice • " + when (selectedMode) { com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID -> stringResource(R.string.mode_hybrid); com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY -> stringResource(R.string.mode_audio_only); com.alad.app.data.repository.UserPreferencesRepository.MODE_SUBTITLE_ONLY -> stringResource(R.string.mode_subtitle_only); else -> selectedMode },
                                     color = TextSecondary,
+                                    fontSize = 11.sp
+                                )
+                            }
+
+                            if (detectedSourceLanguage.isNotBlank()) {
+                                Text(
+                                    text = "Idioma detectado: $detectedSourceLanguageLabel",
+                                    color = NeonCyan,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            } else if (isConnected) {
+                                Text(
+                                    text = "Detectando idioma da fala…",
+                                    color = TextMuted,
                                     fontSize = 11.sp
                                 )
                             }
