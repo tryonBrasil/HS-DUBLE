@@ -3,6 +3,7 @@ package com.alad.app.presentation.main
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
@@ -763,12 +764,20 @@ fun MainScreen(
                                     }
                                 }
                                 result.onSuccess { (current, latest, downloadUrl) ->
-                                    if (latest != current && downloadUrl.isNotBlank()) {
+                                    val latestParts = latest.split(".").map { it.toIntOrNull() ?: 0 }
+                                    val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+                                    val latestIsNewer = (0 until maxOf(latestParts.size, currentParts.size))
+                                        .firstNotNullOfOrNull { index ->
+                                            val comparison = (latestParts.getOrElse(index) { 0 })
+                                                .compareTo(currentParts.getOrElse(index) { 0 })
+                                            comparison.takeIf { it != 0 }
+                                        }?.let { it > 0 } ?: false
+                                    if (latestIsNewer && downloadUrl.isNotBlank()) {
                                         updateDownloadUrl = downloadUrl
                                         updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja abrir o download?"
                                     } else {
                                         updateDownloadUrl = null
-                                        updateDialogMessage = if (latest == current) {
+                                        updateDialogMessage = if (!latestIsNewer) {
                                             "Você já está usando a versão mais recente ($current)."
                                         } else {
                                             "A versão publicada ($latest) foi encontrada, mas o link do APK não está disponível."
