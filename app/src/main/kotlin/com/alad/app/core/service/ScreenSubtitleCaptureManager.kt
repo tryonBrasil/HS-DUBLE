@@ -266,6 +266,9 @@ class ScreenSubtitleCaptureManager(
                 candidateText = ""
                 candidateNormalized = ""
                 candidateCount = 0
+                // A caption may legitimately appear again later in the same game.
+                lastRequestedNormalized = ""
+                currentSourceNormalized = ""
             }
             return
         }
