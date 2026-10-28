@@ -166,9 +166,9 @@ class AudioDubbingForegroundService : Service() {
 
                 if (screenSubtitleMode) {
                     DubbingSessionRepository.setDetectedSourceLanguage("")
-                    // OCR mode is subtitle-only by design: preserve the game's original Korean audio.
-                    // Show Portuguese captions only, without source text or synthesized voice.
-                    initializeScreenSubtitleTts("pt-BR", shouldSpeak = false)
+                    // OCR mode translates visible game dialogue into Portuguese captions and speech.
+                    // The game audio itself may need to be muted in the game's own settings.
+                    initializeScreenSubtitleTts("pt-BR", shouldSpeak = true)
                     screenSubtitleCaptureManager = ScreenSubtitleCaptureManager(
                         context = applicationContext,
                         projection = projection,
@@ -180,6 +180,7 @@ class AudioDubbingForegroundService : Service() {
                         },
                         onTranslatedText = { text ->
                             DubbingSessionRepository.setScreenTranslatedText(text)
+                            speakScreenSubtitle(text)
                         },
                         onStatus = { status ->
                             DubbingSessionRepository.setConnectionStatus(status)
