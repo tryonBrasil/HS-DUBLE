@@ -191,7 +191,7 @@ private fun startApkDownload(context: Context, apkUrl: String, updateStatus: (St
         override fun onReceive(receiverContext: Context?, intent: Intent?) {
             if (intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L) != downloadId) return
             try {
-                ContextCompat.unregisterReceiver(context, this)
+                context.unregisterReceiver(this)
             } catch (_: Exception) {
                 // The receiver may already have been unregistered by Android.
             }
@@ -227,7 +227,7 @@ private fun startApkDownload(context: Context, apkUrl: String, updateStatus: (St
         updateStatus("Download iniciado. Você será avisado quando estiver pronto.")
     } catch (error: Exception) {
         try {
-            ContextCompat.unregisterReceiver(context, receiver)
+            context.unregisterReceiver(receiver)
         } catch (_: Exception) {
             // Ignore cleanup errors.
         }
