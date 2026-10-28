@@ -6,9 +6,20 @@ import okhttp3.*
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
+/**
+ * Maintains a Gemini Live WebSocket and reconnects after transient network/server failures.
+ * Audio buffered during a reconnect is deliberately bounded to avoid latency and memory growth.
+ */
 class ALADWebSocketManager(private val client: OkHttpClient) {
-    private var webSocket: WebSocket? = null
+    @Volatile private var webSocket: WebSocket? = null
+    @Volatile private var isSetupComplete = false
+    @Volatile private var shouldReconnect = false
+
     var onBinaryMessageReceived: ((ByteArray) -> Unit)? = null
     var onTextMessageReceived: ((String) -> Unit)? = null
     var onSourceTextReceived: ((String) -> Unit)? = null
@@ -18,13 +29,39 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     companion object {
         private const val TAG = "ALADWebSocketManager"
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
+        // 40 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
+        private const val MAX_PENDING_AUDIO_CHUNKS = 50
+        private const val MAX_RECONNECT_DELAY_SECONDS = 30L
+
+        // Keep translation instructions concise: the live stream must stay responsive on mid-range phones.
+        private const val SPEAKER_AWARE_INSTRUCTION = """
+            Translate the game dialogue faithfully into the requested target language.
+            Treat each audible speaker as a separate character. Track speaker changes from the audio and
+            keep each character's identity consistent across nearby turns. Preserve the speaker's intended
+            grammatical gender in the translated wording when the language requires it; do not guess when
+            the audio/context is ambiguous. Do not merge two speakers into one sentence, invent dialogue,
+            omit short replies, or repeat already translated words. Keep names, meaning, emotion and tone
+            faithful to the original. Start translating as soon as enough context is available; stream partial
+            output instead of waiting for the speaker to finish. If speech stops abruptly, complete the phrase
+            using audio already received and never discard the final words. Prioritize low latency and completeness.
+        """
     }
 
-    private var isSetupComplete = false
-    private var currentVoicePersona = "Puck"
-    private var currentDubbingMode = "HYBRID"
-    private var currentTargetDialect = ""
+    private val reconnectExecutor: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { runnable ->
+        Thread(runnable, "GeminiReconnect").apply { isDaemon = true }
+    }
+    private var reconnectFuture: ScheduledFuture<*>? = null
+    private var reconnectAttempts = 0
+    private val audioLock = Any()
+    private val pendingAudio = ArrayDeque<ByteArray>()
 
+    @Volatile private var currentApiKey = ""
+    @Volatile private var currentTargetLang = "pt-BR"
+    @Volatile private var currentVoicePersona = "Puck"
+    @Volatile private var currentDubbingMode = "HYBRID"
+    @Volatile private var currentTargetDialect = ""
+
+    @Synchronized
     fun connect(
         apiKey: String,
         sourceLang: String,
@@ -33,196 +70,237 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         dubbingMode: String = "HYBRID",
         targetDialect: String = ""
     ) {
+        currentApiKey = apiKey
+        currentTargetLang = targetLang
         currentVoicePersona = voicePersona
         currentDubbingMode = dubbingMode
         currentTargetDialect = targetDialect
-        val finalUrl = "$GEMINI_WS_URL?key=$apiKey"
-        val request = Request.Builder().url(finalUrl).build()
+        shouldReconnect = true
+        reconnectAttempts = 0
+        reconnectFuture?.cancel(false)
+        reconnectFuture = null
         isSetupComplete = false
+        val previous = webSocket
+        webSocket = null
+        previous?.cancel()
+        synchronized(audioLock) { pendingAudio.clear() }
+        openSocket()
+    }
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
+    @Synchronized
+    private fun openSocket() {
+        if (!shouldReconnect) return
+        isSetupComplete = false
+        val request = Request.Builder().url("$GEMINI_WS_URL?key=$currentApiKey").build()
+        val socket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                if (webSocket !== this@ALADWebSocketManager.webSocket) return
+                if (webSocket !== this@ALADWebSocketManager.webSocket || !shouldReconnect) return
                 Log.d(TAG, "Connected to Gemini Live API")
                 onStatusChanged?.invoke("Connected")
-                sendGeminiSetup(targetLang, currentVoicePersona, currentDubbingMode, currentTargetDialect)
+                sendGeminiSetup(webSocket, currentTargetLang, currentVoicePersona)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
-                if (webSocket !== this@ALADWebSocketManager.webSocket) return
-                Log.d(TAG, "Raw message: $text")
+                if (webSocket !== this@ALADWebSocketManager.webSocket || !shouldReconnect) return
                 try {
                     val json = JSONObject(text)
-
                     if (json.has("serverContent") || json.has("server_content")) {
                         val serverContent = json.optJSONObject("serverContent") ?: json.optJSONObject("server_content")
                         if (serverContent != null) {
-                            // 1. Output transcription: translated text for live subtitles
                             val outputTranscription = serverContent.optJSONObject("outputTranscription")
                                 ?: serverContent.optJSONObject("output_transcription")
-                            if (outputTranscription != null) {
-                                val translatedText = outputTranscription.optString("text", "")
-                                if (translatedText.isNotEmpty()) {
-                                    Log.d(TAG, "Live subtitle output: $translatedText")
-                                    onTextMessageReceived?.invoke(translatedText)
-                                }
+                            outputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
+                                onTextMessageReceived?.invoke(it)
                             }
 
-                            // 2. Input transcription: source speech transcript
                             val inputTranscription = serverContent.optJSONObject("inputTranscription")
                                 ?: serverContent.optJSONObject("input_transcription")
-                            if (inputTranscription != null) {
-                                val sourceText = inputTranscription.optString("text", "")
-                                if (sourceText.isNotEmpty()) {
-                                    Log.d(TAG, "Source speech input: $sourceText")
-                                    onSourceTextReceived?.invoke(sourceText)
-                                }
+                            inputTranscription?.optString("text", "")?.takeIf { it.isNotEmpty() }?.let {
+                                onSourceTextReceived?.invoke(it)
                             }
 
-                            // 3. Model turn parts: audio PCM chunks & optional text parts
-                            val modelTurn = serverContent.optJSONObject("modelTurn") ?: serverContent.optJSONObject("model_turn")
-                            val parts = modelTurn?.optJSONArray("parts")
+                            val parts = (serverContent.optJSONObject("modelTurn")
+                                ?: serverContent.optJSONObject("model_turn"))?.optJSONArray("parts")
                             if (parts != null) {
                                 for (i in 0 until parts.length()) {
-                                    val part = parts.getJSONObject(i)
-
-                                    if (part.has("text")) {
-                                        val textDelta = part.optString("text", "")
-                                        if (textDelta.isNotEmpty()) {
-                                            Log.d(TAG, "Part text: $textDelta")
-                                            onTextMessageReceived?.invoke(textDelta)
-                                        }
+                                    val part = parts.optJSONObject(i) ?: continue
+                                    part.optString("text", "").takeIf { it.isNotEmpty() }?.let {
+                                        onTextMessageReceived?.invoke(it)
                                     }
-
                                     val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
-                                    if (inlineData != null) {
-                                        val base64Data = inlineData.getString("data")
-                                        val audioBytes = Base64.decode(base64Data, Base64.DEFAULT)
-                                        onBinaryMessageReceived?.invoke(audioBytes)
+                                    val encoded = inlineData?.optString("data", "")
+                                    if (!encoded.isNullOrEmpty()) {
+                                        onBinaryMessageReceived?.invoke(Base64.decode(encoded, Base64.DEFAULT))
                                     }
                                 }
                             }
 
-                            // 4. Check for turn completion
-                            val turnComplete = serverContent.optBoolean("turnComplete", false)
-                                || serverContent.optBoolean("turn_complete", false)
-                            if (turnComplete) {
-                                Log.d(TAG, "Turn complete from Gemini Live API")
+                            if (serverContent.optBoolean("turnComplete", false) ||
+                                serverContent.optBoolean("turn_complete", false)) {
                                 onTurnComplete?.invoke()
                             }
                         }
                     } else if (json.has("setupComplete") || json.has("setup_complete")) {
                         isSetupComplete = true
-                        Log.d(TAG, "Gemini Setup Complete - Ready for audio streaming")
+                        reconnectAttempts = 0
+                        Log.d(TAG, "Gemini setup complete")
                         onStatusChanged?.invoke("Gemini Ready")
-                        pendingAudio.forEach { sendAudioNow(it) }
-                        pendingAudio.clear()
+                        flushPendingAudio(webSocket)
                     } else if (json.has("error")) {
-                        val errMessage = json.getJSONObject("error").optString("message", "Unknown error")
-                        Log.e(TAG, "API Error: $errMessage")
+                        val errMessage = json.optJSONObject("error")?.optString("message", "Erro desconhecido")
+                            ?: "Erro desconhecido"
+                        Log.e(TAG, "Gemini API error: $errMessage")
                         onStatusChanged?.invoke("Error: $errMessage")
                     }
                 } catch (e: Exception) {
-                    Log.e(TAG, "Error parsing message", e)
+                    Log.e(TAG, "Could not parse Gemini message", e)
                 }
             }
 
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
-                if (webSocket !== this@ALADWebSocketManager.webSocket) return
-                val text = bytes.utf8()
-                onMessage(webSocket, text)
+                onMessage(webSocket, bytes.utf8())
             }
 
             override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket) return
                 isSetupComplete = false
-                Log.d(TAG, "Closing: $code $reason")
-                onStatusChanged?.invoke("Disconnected: $reason")
+                Log.w(TAG, "WebSocket closing: $code $reason")
+                webSocket.close(code, reason)
+            }
+
+            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                if (webSocket !== this@ALADWebSocketManager.webSocket) return
+                isSetupComplete = false
+                if (shouldReconnect) scheduleReconnect("Conexão encerrada")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket) return
                 isSetupComplete = false
-                Log.e(TAG, "WebSocket error", t)
-                onStatusChanged?.invoke("Error: ${t.message}")
+                Log.e(TAG, "Gemini WebSocket failure (HTTP ${response?.code})", t)
+                if (shouldReconnect) scheduleReconnect("Falha na conexão")
+                else onStatusChanged?.invoke("Error: ${t.message ?: "conexão perdida"}")
             }
         })
+        webSocket = socket
     }
 
-    private fun sendGeminiSetup(targetLang: String, voicePersona: String, dubbingMode: String, targetDialect: String) {
+    @Synchronized
+    private fun scheduleReconnect(reason: String) {
+        if (!shouldReconnect || reconnectFuture?.isDone == false) return
+        isSetupComplete = false
+        reconnectAttempts++
+        val delay = (1L shl (reconnectAttempts - 1).coerceAtMost(5)).coerceAtMost(MAX_RECONNECT_DELAY_SECONDS)
+        Log.w(TAG, "$reason; reconnect attempt $reconnectAttempts in ${delay}s")
+        onStatusChanged?.invoke("Reconnecting")
+        reconnectFuture = reconnectExecutor.schedule({
+            synchronized(this) {
+                reconnectFuture = null
+                if (shouldReconnect) {
+                    val old = webSocket
+                    webSocket = null
+                    old?.cancel()
+                    openSocket()
+                }
+            }
+        }, delay, TimeUnit.SECONDS)
+    }
+
+    private fun sendGeminiSetup(socket: WebSocket, targetLang: String, voicePersona: String) {
         val targetLangCode = targetLang.split("-")[0]
-
-        val dialectInstruction = com.alad.app.presentation.main.supportedDialects[targetLangCode]
-            ?.find { it.code.equals(targetDialect, ignoreCase = true) }
-            ?.promptInstruction ?: if (targetDialect.isNotEmpty()) "Speak and translate in $targetDialect dialect" else ""
-
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
+                put("systemInstruction", JSONObject().apply {
+                    put("parts", JSONArray().put(JSONObject().put("text", SPEAKER_AWARE_INSTRUCTION.trimIndent())))
+                })
+                // Detect speech onset quickly, keep a little pre-roll, and wait briefly for trailing words
+                // before closing a turn. This balances fast partial translation with complete sentence endings.
+                put("realtimeInputConfig", JSONObject().apply {
+                    put("automaticActivityDetection", JSONObject().apply {
+                        put("disabled", false)
+                        put("startOfSpeechSensitivity", "START_SENSITIVITY_HIGH")
+                        put("endOfSpeechSensitivity", "END_SENSITIVITY_LOW")
+                        put("prefixPaddingMs", 160)
+                        put("silenceDurationMs", 800)
+                    })
+                })
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
-
                     put("speechConfig", JSONObject().apply {
                         put("voiceConfig", JSONObject().apply {
-                            put("prebuiltVoiceConfig", JSONObject().apply {
-                                put("voiceName", voicePersona)
-                            })
+                            put("prebuiltVoiceConfig", JSONObject().apply { put("voiceName", voicePersona) })
                         })
                     })
-
                     put("translationConfig", JSONObject().apply {
                         put("targetLanguageCode", targetLangCode)
                         put("echoTargetLanguage", true)
                     })
                 })
-
-                if (dialectInstruction.isNotEmpty()) {
-                    put("systemInstruction", JSONObject().apply {
-                        put("parts", JSONArray().put(JSONObject().apply {
-                            put("text", "You are an expert real-time AI live audio dubber. $dialectInstruction. Maintain natural pacing and high clarity.")
-                        }))
-                    })
-                }
-
-                // Direct children of BidiGenerateContentSetup according to Google Gemini Live API specification
                 put("inputAudioTranscription", JSONObject())
                 put("outputAudioTranscription", JSONObject())
-                put("sessionResumption", JSONObject().apply {
-                    put("handle", JSONObject.NULL)
-                })
+                put("sessionResumption", JSONObject().apply { put("handle", JSONObject.NULL) })
             })
         }
-        Log.d(TAG, "Setup message payload: $setupPayload")
-        webSocket?.send(setupPayload.toString())
+        if (!socket.send(setupPayload.toString())) {
+            scheduleReconnect("Não foi possível enviar a configuração")
+        }
     }
-
-    private val pendingAudio = mutableListOf<String>()
 
     fun sendAudioData(pcmData: ByteArray) {
-        val base64Audio = Base64.encodeToString(pcmData, Base64.NO_WRAP)
         if (!isSetupComplete) {
-            pendingAudio.add(base64Audio)
-            if (pendingAudio.size > 8) pendingAudio.removeAt(0)
+            queueAudio(pcmData)
             return
         }
-        sendAudioNow(base64Audio)
+        val socket = webSocket
+        if (socket == null || !sendAudioNow(socket, pcmData)) {
+            queueAudio(pcmData)
+            scheduleReconnect("Envio de áudio falhou")
+        }
     }
 
-    private fun sendAudioNow(base64Audio: String) {
+    private fun sendAudioNow(socket: WebSocket, pcmData: ByteArray): Boolean {
         val inputPayload = JSONObject().apply {
             put("realtimeInput", JSONObject().apply {
                 put("audio", JSONObject().apply {
                     put("mimeType", "audio/pcm;rate=16000")
-                    put("data", base64Audio)
+                    put("data", Base64.encodeToString(pcmData, Base64.NO_WRAP))
                 })
             })
         }
-        webSocket?.send(inputPayload.toString())
+        return socket.send(inputPayload.toString())
     }
 
+    private fun queueAudio(pcmData: ByteArray) {
+        synchronized(audioLock) {
+            if (pendingAudio.size >= MAX_PENDING_AUDIO_CHUNKS) pendingAudio.removeFirst()
+            pendingAudio.addLast(pcmData.copyOf())
+        }
+    }
+
+    private fun flushPendingAudio(socket: WebSocket) {
+        val queued = synchronized(audioLock) {
+            val copy = pendingAudio.toList()
+            pendingAudio.clear()
+            copy
+        }
+        for (chunk in queued) {
+            if (!sendAudioNow(socket, chunk)) {
+                queueAudio(chunk)
+                scheduleReconnect("Fila de áudio não pôde ser enviada")
+                break
+            }
+        }
+    }
+
+    @Synchronized
     fun disconnect() {
+        shouldReconnect = false
         isSetupComplete = false
-        pendingAudio.clear()
+        reconnectFuture?.cancel(false)
+        reconnectFuture = null
+        reconnectAttempts = 0
+        synchronized(audioLock) { pendingAudio.clear() }
         val oldSocket = webSocket
         webSocket = null
         oldSocket?.close(1000, "User requested stop")

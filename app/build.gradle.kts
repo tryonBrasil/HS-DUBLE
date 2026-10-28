@@ -11,8 +11,8 @@ android {
         applicationId = "com.alad.app"
         minSdk = 29
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 9
+        versionName = "1.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -22,25 +22,25 @@ android {
 
     signingConfigs {
         create("release") {
-            val releaseKeystore = rootProject.file("alad-release.jks")
-            val legacyKeystore = rootProject.file("alad-key.jks")
-            if (releaseKeystore.exists()) {
+            // Never store signing credentials in source control.
+            val releaseKeystore = rootProject.file("hs-voice-translator-release.jks")
+            val storePasswordValue = project.findProperty("HS_STORE_PASSWORD")?.toString()
+                ?: System.getenv("HS_STORE_PASSWORD")
+            val keyAliasValue = project.findProperty("HS_KEY_ALIAS")?.toString()
+                ?: System.getenv("HS_KEY_ALIAS")
+
+            val keyPasswordValue = project.findProperty("HS_KEY_PASSWORD")?.toString()
+                ?: System.getenv("HS_KEY_PASSWORD")
+
+            if (releaseKeystore.exists() &&
+                !storePasswordValue.isNullOrBlank() &&
+                !keyAliasValue.isNullOrBlank() &&
+                !keyPasswordValue.isNullOrBlank()
+            ) {
                 storeFile = releaseKeystore
-                storePassword = "alad123456"
-                keyAlias = "alad"
-                keyPassword = "alad123456"
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-                enableV4Signing = true
-            } else if (legacyKeystore.exists()) {
-                storeFile = legacyKeystore
-                storePassword = project.findProperty("ALAD_STORE_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_STORE_PASSWORD") ?: ""
-                keyAlias = project.findProperty("ALAD_KEY_ALIAS")?.toString()
-                    ?: System.getenv("ALAD_KEY_ALIAS") ?: "key0"
-                keyPassword = project.findProperty("ALAD_KEY_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_KEY_PASSWORD") ?: ""
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
@@ -53,8 +53,15 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val releaseKeystore = rootProject.file("alad-release.jks")
-            if (releaseKeystore.exists()) {
+            val releaseKeystore = rootProject.file("hs-voice-translator-release.jks")
+            val hasSigningCredentials =
+                !(project.findProperty("HS_STORE_PASSWORD")?.toString()
+                    ?: System.getenv("HS_STORE_PASSWORD")).isNullOrBlank() &&
+                !(project.findProperty("HS_KEY_ALIAS")?.toString()
+                    ?: System.getenv("HS_KEY_ALIAS")).isNullOrBlank() &&
+                !(project.findProperty("HS_KEY_PASSWORD")?.toString()
+                    ?: System.getenv("HS_KEY_PASSWORD")).isNullOrBlank()
+            if (releaseKeystore.exists() && hasSigningCredentials) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -89,7 +96,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    
+
     // Compose
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
@@ -98,10 +105,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
     // DataStore (Standard Preferences)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 

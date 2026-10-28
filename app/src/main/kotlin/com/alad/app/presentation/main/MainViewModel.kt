@@ -37,7 +37,7 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "en")
 
     val targetLang: StateFlow<String> = repository.targetLangFlow
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "fa")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "pt")
 
     val targetDialect: StateFlow<String> = repository.targetDialectFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")

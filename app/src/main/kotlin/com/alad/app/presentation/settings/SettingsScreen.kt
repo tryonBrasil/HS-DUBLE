@@ -60,7 +60,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                 ) {
                     GlassIconButton(
                         icon = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.back),
                         onClick = onBack,
                         tint = Color.White
                     )
@@ -125,7 +125,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                                     fontSize = 16.sp
                                 )
                                 Text(
-                                    text = "Google AI Studio Live API",
+                                    text = stringResource(R.string.gemini_live_api),
                                     color = TextSecondary,
                                     fontSize = 12.sp
                                 )
@@ -137,7 +137,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                         OutlinedTextField(
                             value = apiKey,
                             onValueChange = viewModel::updateApiKey,
-                            placeholder = { Text("AIzaSy...", color = TextSecondary.copy(alpha = 0.6f)) },
+                            placeholder = { Text(stringResource(R.string.api_key_placeholder), color = TextSecondary.copy(alpha = 0.6f)) },
                             visualTransformation = if (apiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(16.dp),
@@ -267,11 +267,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         val voices = listOf(
-                            Triple("Puck", stringResource(R.string.voice_puck), "Energetic"),
-                            Triple("Charon", stringResource(R.string.voice_charon), "Deep"),
-                            Triple("Aoede", stringResource(R.string.voice_aoede), "Melodic"),
-                            Triple("Fenrir", stringResource(R.string.voice_fenrir), "Authoritative"),
-                            Triple("Kore", stringResource(R.string.voice_kore), "Calm")
+                            Triple("Puck", stringResource(R.string.voice_puck), stringResource(R.string.voice_energetic)),
+                            Triple("Charon", stringResource(R.string.voice_charon), stringResource(R.string.voice_deep)),
+                            Triple("Aoede", stringResource(R.string.voice_aoede), stringResource(R.string.voice_melodic)),
+                            Triple("Fenrir", stringResource(R.string.voice_fenrir), stringResource(R.string.voice_authoritative)),
+                            Triple("Kore", stringResource(R.string.voice_kore), stringResource(R.string.voice_calm))
                         )
 
                         voices.forEach { (voiceId, voiceLabel, badge) ->
@@ -414,7 +414,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                                     fontSize = 16.sp
                                 )
                                 Text(
-                                    text = "Choose audio, subtitles, or both",
+                                    text = stringResource(R.string.choose_audio_subtitles_both),
                                     color = TextSecondary,
                                     fontSize = 12.sp
                                 )

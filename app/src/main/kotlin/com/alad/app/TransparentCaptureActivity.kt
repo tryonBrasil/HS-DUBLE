@@ -23,7 +23,7 @@ class TransparentCaptureActivity : ComponentActivity() {
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             startDubbingService(result.resultCode, result.data!!)
         } else {
-            Toast.makeText(this, "Screen capture permission denied", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.screen_capture_permission_denied), Toast.LENGTH_SHORT).show()
         }
         // Small delay to ensure foreground service transition completes before activity tear-down
         Handler(Looper.getMainLooper()).postDelayed({
@@ -39,7 +39,7 @@ class TransparentCaptureActivity : ComponentActivity() {
         if (isGranted) {
             requestScreenCapture()
         } else {
-            Toast.makeText(this, "Audio permission is required for dubbing", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.audio_permission_required_for_dubbing), Toast.LENGTH_SHORT).show()
             finish()
         }
     }

@@ -37,10 +37,10 @@ class MainActivity : ComponentActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             startDubbingService(result.resultCode, result.data!!)
-            mainViewModel.updateStatus("Connected")
+            mainViewModel.updateStatus(getString(R.string.status_connected_short))
         } else {
-            Toast.makeText(this, "Screen capture permission denied", Toast.LENGTH_SHORT).show()
-            mainViewModel.updateStatus("Disconnected")
+            Toast.makeText(this, getString(R.string.screen_capture_permission_denied), Toast.LENGTH_SHORT).show()
+            mainViewModel.updateStatus(getString(R.string.status_disconnected_short))
         }
     }
 
@@ -51,7 +51,7 @@ class MainActivity : ComponentActivity() {
         if (audioGranted) {
             launchScreenCapture()
         } else {
-            Toast.makeText(this, "Audio permission is required", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.audio_permission_required), Toast.LENGTH_SHORT).show()
             mainViewModel.updateStatus("Disconnected")
         }
     }
