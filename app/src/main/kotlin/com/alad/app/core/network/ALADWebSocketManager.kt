@@ -29,7 +29,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     companion object {
         private const val TAG = "ALADWebSocketManager"
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        private const val MAX_PENDING_AUDIO_CHUNKS = 5
+        // 40 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
+        private const val MAX_PENDING_AUDIO_CHUNKS = 50
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
         // Keep translation instructions concise: the live stream must stay responsive on mid-range phones.
@@ -40,7 +41,9 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             grammatical gender in the translated wording when the language requires it; do not guess when
             the audio/context is ambiguous. Do not merge two speakers into one sentence, invent dialogue,
             omit short replies, or repeat already translated words. Keep names, meaning, emotion and tone
-            faithful to the original. Prioritize complete, natural translations with low latency.
+            faithful to the original. Start translating as soon as enough context is available; stream partial
+            output instead of waiting for the speaker to finish. If speech stops abruptly, complete the phrase
+            using audio already received and never discard the final words. Prioritize low latency and completeness.
         """
     }
 
@@ -210,6 +213,17 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                 put("model", "models/gemini-3.5-live-translate-preview")
                 put("systemInstruction", JSONObject().apply {
                     put("parts", JSONArray().put(JSONObject().put("text", SPEAKER_AWARE_INSTRUCTION.trimIndent())))
+                })
+                // Detect speech onset quickly, keep a little pre-roll, and wait briefly for trailing words
+                // before closing a turn. This balances fast partial translation with complete sentence endings.
+                put("realtimeInputConfig", JSONObject().apply {
+                    put("automaticActivityDetection", JSONObject().apply {
+                        put("disabled", false)
+                        put("startOfSpeechSensitivity", "START_SENSITIVITY_HIGH")
+                        put("endOfSpeechSensitivity", "END_SENSITIVITY_LOW")
+                        put("prefixPaddingMs", 160)
+                        put("silenceDurationMs", 800)
+                    })
                 })
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
