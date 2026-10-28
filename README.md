@@ -3,11 +3,11 @@
 </div>
 
 <div align="center">
-  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="ALAD Logo" width="120" />
+  <img src="app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" alt="HS Voice Translator Logo" width="120" />
 
-<h1>🎙️ ALAD — AI Live Audio Dubbing (Mobile)</h1>
+<h1>🎙️ HS Voice Translator — Tradução e Dublagem de Jogos</h1>
 
-<p><strong>Real-time AI vocal dubbing & dual live subtitles for any Android app, powered by Google's Gemini 3.5 Live Translate.</strong></p>
+<p><strong>Tradução de áudio de jogos em tempo real, com voz em português brasileiro e legendas, usando Gemini Live.</strong></p>
 
 <p>
   <a href="https://github.com/navidseyedain/ALAD-Mobile/stargazers"><img src="https://img.shields.io/github/stars/navidseyedain/ALAD-Mobile?style=for-the-badge&color=FFD700" alt="Stars"></a>
@@ -36,9 +36,9 @@
 
 ---
 
-## 🌍 What is ALAD Mobile?
+## 🌍 Sobre o HS Voice Translator
 
-**ALAD (AI Live Audio Dubbing)** is a native Android application that completely eliminates language barriers on mobile devices. Working seamlessly in the background, ALAD captures internal system audio directly from any active app (YouTube, Netflix, Spotify, Podcasts, Twitch, etc.), streams it to Google's **Gemini 3.5 Live Translate** model via high-speed WebSockets, and plays back fluid, natural translated speech in real time while displaying simultaneous dual-language subtitles.
+**HS Voice Translator** is a native Android application that completely eliminates language barriers on mobile devices. Working seamlessly in the background, HS Voice Translator captures internal system audio directly from any active app (YouTube, Netflix, Spotify, Podcasts, Twitch, etc.), streams it to Google's **Gemini 3.5 Live Translate** model via high-speed WebSockets, and plays back fluid, natural translated speech in real time while displaying simultaneous dual-language subtitles.
 
 Unlike traditional subtitle apps or delayed translators, ALAD delivers **zero-lag vocal dubbing** — you *listen* to the content naturally without having to stare at the screen.
 
