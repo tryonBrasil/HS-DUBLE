@@ -71,4 +71,15 @@
     <string name="notification_connected">Conectado e dublando...</string>
     <string name="notification_disconnect">Desconectar</string>
     <string name="notification_title">HS Voice Translator</string>
+    <string name="overlay_start_dubbing">Iniciar dublagem</string>
+    <string name="overlay_toggle_mute">Alternar silêncio</string>
+    <string name="overlay_toggle_subtitles">Alternar legendas</string>
+    <string name="overlay_close_widget">Fechar controle</string>
+    <string name="overlay_listening">Ouvindo</string>
+    <string name="overlay_gemini_ready">Gemini pronto</string>
+    <string name="overlay_subtitles_title">LEGENDAS</string>
+    <string name="overlay_hide_subtitles">Ocultar legendas</string>
+    <string name="status_initializing">Inicializando...</string>
+    <string name="status_capture_denied">Captura de áudio negada</string>
+    <string name="audio_permission_required_for_dubbing">É necessário permitir o acesso ao áudio para dublar</string>
 </resources>
