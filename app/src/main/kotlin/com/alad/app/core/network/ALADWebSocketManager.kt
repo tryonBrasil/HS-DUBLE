@@ -253,6 +253,31 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         }
     }
 
+    /**
+     * Sends a deduplicated on-screen subtitle as context, not as dialogue to translate.
+     * The audio stream remains the primary source of truth.
+     */
+    fun sendSubtitleContext(subtitle: String) {
+        val clean = subtitle.trim().take(500)
+        if (clean.isEmpty() || !isSetupComplete) return
+        val socket = webSocket ?: return
+        val payload = JSONObject().apply {
+            put("clientContent", JSONObject().apply {
+                put("turns", JSONArray().put(JSONObject().apply {
+                    put("role", "user")
+                    put("parts", JSONArray().put(JSONObject().put(
+                        "text",
+                        "REFERENCE ONLY — Portuguese subtitle currently visible on the game screen: \"$clean\". This is context, not spoken input. Do not repeat or voice this text; use it only to clarify the English game audio."
+                    )))
+                }))
+                put("turnComplete", false)
+            })
+        }
+        if (!socket.send(payload.toString())) {
+            Log.d(TAG, "Could not send subtitle context")
+        }
+    }
+
     fun sendAudioData(pcmData: ByteArray) {
         if (!isSetupComplete) {
             queueAudio(pcmData)
