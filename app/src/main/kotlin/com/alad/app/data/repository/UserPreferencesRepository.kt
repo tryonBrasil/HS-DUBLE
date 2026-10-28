@@ -43,7 +43,7 @@ class UserPreferencesRepository(private val context: Context) {
     val wsUrlFlow: Flow<String> = context.dataStore.data.map { it[WS_URL] ?: "ws://192.168.1.100:8000/ws/dub" }.distinctUntilChanged()
     val apiKeyFlow: Flow<String> = context.dataStore.data.map { it[API_KEY] ?: "" }.distinctUntilChanged()
     val sourceLangFlow: Flow<String> = context.dataStore.data.map { it[SOURCE_LANG] ?: "auto" }.distinctUntilChanged()
-    val targetLangFlow: Flow<String> = context.dataStore.data.map { it[TARGET_LANG] ?: "pt" }.distinctUntilChanged()
+    val targetLangFlow: Flow<String> = context.dataStore.data.map { it[TARGET_LANG] ?: "pt-BR" }.distinctUntilChanged()
     val targetDialectFlow: Flow<String> = context.dataStore.data.map { it[TARGET_DIALECT] ?: "" }.distinctUntilChanged()
     val volumeRatioFlow: Flow<Float> = context.dataStore.data.map { it[VOLUME_RATIO] ?: 1.0f }.distinctUntilChanged()
     val isDubbingMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_DUBBING_MUTED] ?: false }.distinctUntilChanged()
@@ -52,7 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
     val voicePersonaFlow: Flow<String> = context.dataStore.data.map { it[VOICE_PERSONA] ?: "Puck" }.distinctUntilChanged()
     val dubbingModeFlow: Flow<String> = context.dataStore.data.map { it[DUBBING_MODE] ?: MODE_HYBRID }.distinctUntilChanged()
     val showDualSubtitlesFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DUAL_SUBTITLES] ?: true }.distinctUntilChanged()
-    val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: false }.distinctUntilChanged()
+    val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: true }.distinctUntilChanged()
 
     suspend fun updateWsUrl(url: String) { context.dataStore.edit { it[WS_URL] = url } }
     suspend fun updateApiKey(key: String) { context.dataStore.edit { it[API_KEY] = key } }
