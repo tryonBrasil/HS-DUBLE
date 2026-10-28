@@ -190,7 +190,7 @@ fun MainScreen(
                         ) {
                             Image(
                                 painter = painterResource(id = R.mipmap.ic_launcher),
-                                contentDescription = "ALAD Logo",
+                                contentDescription = "HS Voice Translator logo",
                                 modifier = Modifier.fillMaxSize()
                             )
                         }
@@ -199,14 +199,14 @@ fun MainScreen(
 
                         Column {
                             Text(
-                                text = "ALAD",
+                                text = "HS Voice Translator",
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
                                 fontSize = 20.sp,
                                 letterSpacing = 1.sp
                             )
                             Text(
-                                text = "AI Live Audio Dubbing",
+                                text = "Tradução e dublagem de jogos",
                                 color = NeonCyan.copy(alpha = 0.85f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
