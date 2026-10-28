@@ -234,7 +234,22 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             targetLang.contains('-') -> targetLang
             else -> baseTargetLanguage
         }
-        val sourceLanguageHint = sourceLang.trim().takeUnless { it.isBlank() || it.equals("auto", ignoreCase = true) }
+        // Language picker stores short ISO language codes, while the transcription hint
+        // expects BCP-47 tags. Use the regional code for Korean so recognition is biased
+        // toward standard Korean rather than relying on automatic detection.
+        val sourceLanguageHint = when (sourceLang.trim().lowercase()) {
+            "", "auto" -> null
+            "ko" -> "ko-KR"
+            "pt" -> "pt-BR"
+            "en" -> "en-US"
+            "ja" -> "ja-JP"
+            "de" -> "de-DE"
+            "es" -> "es-ES"
+            "fr" -> "fr-FR"
+            "it" -> "it-IT"
+            "zh" -> "cmn-Hans-CN"
+            else -> sourceLang.trim()
+        }
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
