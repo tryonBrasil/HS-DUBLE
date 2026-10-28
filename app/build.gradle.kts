@@ -8,11 +8,11 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.alad.app"
+        applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 6
-        versionName = "1.2.6"
+        versionCode = 7
+        versionName = "1.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -22,30 +22,15 @@ android {
 
     signingConfigs {
         create("release") {
-            val releaseKeystore = rootProject.file("alad-release.jks")
-            val legacyKeystore = rootProject.file("alad-key.jks")
-            if (releaseKeystore.exists()) {
-                storeFile = releaseKeystore
-                storePassword = "alad123456"
-                keyAlias = "alad"
-                keyPassword = "alad123456"
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-                enableV4Signing = true
-            } else if (legacyKeystore.exists()) {
-                storeFile = legacyKeystore
-                storePassword = project.findProperty("ALAD_STORE_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_STORE_PASSWORD") ?: ""
-                keyAlias = project.findProperty("ALAD_KEY_ALIAS")?.toString()
-                    ?: System.getenv("ALAD_KEY_ALIAS") ?: "key0"
-                keyPassword = project.findProperty("ALAD_KEY_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_KEY_PASSWORD") ?: ""
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-                enableV4Signing = true
-            }
+            val releaseKeystore = rootProject.file("hs-voice-release.jks")
+            storeFile = releaseKeystore
+            storePassword = System.getenv("HS_VOICE_STORE_PASSWORD").orEmpty()
+            keyAlias = System.getenv("HS_VOICE_KEY_ALIAS").orEmpty()
+            keyPassword = System.getenv("HS_VOICE_KEY_PASSWORD").orEmpty()
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
         }
     }
 
@@ -53,8 +38,12 @@ android {
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            val releaseKeystore = rootProject.file("alad-release.jks")
-            if (releaseKeystore.exists()) {
+            val releaseKeystore = rootProject.file("hs-voice-release.jks")
+            if (releaseKeystore.exists() &&
+                System.getenv("HS_VOICE_STORE_PASSWORD").orEmpty().isNotBlank() &&
+                System.getenv("HS_VOICE_KEY_ALIAS").orEmpty().isNotBlank() &&
+                System.getenv("HS_VOICE_KEY_PASSWORD").orEmpty().isNotBlank()
+            ) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
@@ -84,12 +73,11 @@ android {
 }
 
 dependencies {
-
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
-    
+
     // Compose
     implementation("androidx.activity:activity-compose:1.8.2")
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
@@ -98,10 +86,10 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
-    
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+
     // DataStore (Standard Preferences)
     implementation("androidx.datastore:datastore-preferences:1.0.0")
 

@@ -147,13 +147,13 @@ private fun fetchLatestRelease(): AppRelease {
         var apkUrl: String? = null
         for (index in 0 until assets.length()) {
             val asset = assets.getJSONObject(index)
-            if (asset.optString("name").equals("hs-duble.apk", ignoreCase = true)) {
+            if (asset.optString("name").equals("hs-voice-translator.apk", ignoreCase = true)) {
                 apkUrl = asset.optString("browser_download_url")
                 break
             }
         }
         if (version.isBlank() || apkUrl.isNullOrBlank()) {
-            throw IllegalStateException("A versão publicada ainda não contém o arquivo hs-duble.apk.")
+            throw IllegalStateException("A versão publicada ainda não contém o arquivo hs-voice-translator.apk.")
         }
         return AppRelease(version, apkUrl)
     } finally {
