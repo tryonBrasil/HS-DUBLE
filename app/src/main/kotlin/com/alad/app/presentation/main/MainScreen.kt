@@ -56,6 +56,7 @@ import kotlin.math.sin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URL
 
@@ -734,7 +735,7 @@ fun MainScreen(
                             updateScope.launch {
                                 val result = withContext(Dispatchers.IO) {
                                     runCatching {
-                                        val connection = URL("https://api.github.com/repos/tryonBrasil/HS-DUBLE/releases/latest")
+                                        val connection = URL("https://api.github.com/repos/tryonBrasil/HS-DUBLE/releases?per_page=20")
                                             .openConnection() as java.net.HttpURLConnection
                                         connection.connectTimeout = 10000
                                         connection.readTimeout = 10000
@@ -744,7 +745,14 @@ fun MainScreen(
                                             if (connection.responseCode !in 200..299) {
                                                 throw IllegalStateException("Ainda não há uma versão publicada ou não foi possível consultar.")
                                             }
-                                            val release = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+                                            val releases = JSONArray(connection.inputStream.bufferedReader().use { it.readText() })
+                                            // Ignore malformed tags such as the accidental release tag "v".
+                                            val release = (0 until releases.length())
+                                                .mapNotNull { releases.optJSONObject(it) }
+                                                .firstOrNull { candidate ->
+                                                    candidate.optString("tag_name").removePrefix("v")
+                                                        .matches(Regex("\\d+(\\.\\d+)*"))
+                                                } ?: throw IllegalStateException("Nenhuma versão válida foi publicada.")
                                             val latestVersion = release.optString("tag_name").removePrefix("v")
                                             val currentVersion = context.packageManager
                                                 .getPackageInfo(context.packageName, 0).versionName ?: "1.3.0"
