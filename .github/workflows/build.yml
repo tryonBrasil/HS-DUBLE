@@ -43,12 +43,32 @@ jobs:
             echo "Signing key secret not configured; release APK will be unsigned."
           fi
 
+      - name: Validate release signing configuration
+        env:
+          HS_KEYSTORE_BASE64: ${{ secrets.HS_KEYSTORE_BASE64 }}
+          HS_STORE_PASSWORD: ${{ secrets.HS_STORE_PASSWORD }}
+          HS_KEY_ALIAS: ${{ secrets.HS_KEY_ALIAS }}
+          HS_KEY_PASSWORD: ${{ secrets.HS_KEY_PASSWORD }}
+        run: |
+          test -n "$HS_KEYSTORE_BASE64" || { echo "Missing HS_KEYSTORE_BASE64 secret"; exit 1; }
+          test -n "$HS_STORE_PASSWORD" || { echo "Missing HS_STORE_PASSWORD secret"; exit 1; }
+          test -n "$HS_KEY_ALIAS" || { echo "Missing HS_KEY_ALIAS secret"; exit 1; }
+          test -n "$HS_KEY_PASSWORD" || { echo "Missing HS_KEY_PASSWORD secret"; exit 1; }
+          test -s hs-voice-translator-release.jks || { echo "Release keystore was not created"; exit 1; }
+
       - name: Build debug and release APKs
         env:
           HS_STORE_PASSWORD: ${{ secrets.HS_STORE_PASSWORD }}
           HS_KEY_ALIAS: ${{ secrets.HS_KEY_ALIAS }}
           HS_KEY_PASSWORD: ${{ secrets.HS_KEY_PASSWORD }}
         run: ./gradlew --no-daemon assembleDebug assembleRelease
+
+      - name: Verify release APK signature
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK" || { echo "Release APK not found"; exit 1; }
+          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose --print-certs "$APK"
+          echo "Release APK signature verification passed."
 
       - name: Remove signing key file
         if: always()
