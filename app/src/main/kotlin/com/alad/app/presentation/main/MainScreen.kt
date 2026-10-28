@@ -72,6 +72,16 @@ fun MainScreen(
 ) {
     val isConnected by viewModel.isConnected.collectAsState()
     val amplitude by viewModel.audioAmplitude.collectAsState()
+    val connectionStatus by viewModel.statusMessage.collectAsState()
+    val audioCaptureStatus by viewModel.audioCaptureStatus.collectAsState()
+    val apiReady = connectionStatus.equals("Gemini Ready", ignoreCase = true)
+    val apiStatusLabel = when {
+        apiReady -> "API Gemini pronta para traduzir"
+        connectionStatus.equals("Connected", ignoreCase = true) -> "API conectada; configurando tradução…"
+        connectionStatus.startsWith("Error:", ignoreCase = true) -> connectionStatus.replaceFirst("Error:", "Erro:")
+        connectionStatus.startsWith("Reconnecting", ignoreCase = true) -> connectionStatus.replaceFirst("Reconnecting", "Reconectando")
+        else -> connectionStatus
+    }
     val liveSubtitleText by viewModel.liveSubtitleText.collectAsState()
     val liveSourceSubtitleText by viewModel.liveSourceSubtitleText.collectAsState()
     val detectedSourceLanguage by viewModel.detectedSourceLanguage.collectAsState()
@@ -338,18 +348,27 @@ fun MainScreen(
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
-                // 1. Status Indicator
-                val statusText = if (isConnected) {
-                    stringResource(R.string.status_connected)
-                } else {
-                    stringResource(R.string.status_disconnected)
-                }
-
+                // 1. Status Indicator — use the real API state, not just the running service flag.
                 StatusBadge(
-                    isConnected = isConnected,
-                    statusText = statusText,
+                    isConnected = apiReady,
+                    statusText = apiStatusLabel,
                     modifier = Modifier.fillMaxWidth()
                 )
+
+                if (isConnected) {
+                    val captureColor = when {
+                        audioCaptureStatus.contains("Falha", ignoreCase = true) || audioCaptureStatus.contains("Erro", ignoreCase = true) -> Color(0xFFFF7373)
+                        audioCaptureStatus.contains("detectado", ignoreCase = true) -> NeonCyan
+                        else -> TextSecondary
+                    }
+                    Text(
+                        text = "Áudio do jogo: $audioCaptureStatus",
+                        color = captureColor,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
 
                 // 2. Animated Audio Waveform
                 AnimatedWaveform(

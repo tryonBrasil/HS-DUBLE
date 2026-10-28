@@ -31,8 +31,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     companion object {
         private const val TAG = "ALADWebSocketManager"
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        // 40 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
-        private const val MAX_PENDING_AUDIO_CHUNKS = 50
+        // 100 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
+        private const val MAX_PENDING_AUDIO_CHUNKS = 20
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
     }
@@ -152,10 +152,13 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                         onStatusChanged?.invoke("Gemini Ready")
                         flushPendingAudio(webSocket)
                     } else if (json.has("error")) {
-                        val errMessage = json.optJSONObject("error")?.optString("message", "Erro desconhecido")
-                            ?: "Erro desconhecido"
-                        Log.e(TAG, "Gemini API error: $errMessage")
-                        onStatusChanged?.invoke("Error: $errMessage")
+                        val errorObject = json.optJSONObject("error")
+                        val errMessage = errorObject?.optString("message", "Erro desconhecido") ?: "Erro desconhecido"
+                        val errorCode = errorObject?.optString("code", "")?.takeIf { it.isNotBlank() && it != "0" }
+                        val errorStatus = errorObject?.optString("status", "")?.takeIf { it.isNotBlank() }
+                        val details = listOfNotNull(errorCode, errorStatus, errMessage).distinct().joinToString(" — ")
+                        Log.e(TAG, "Gemini API error: $details")
+                        onStatusChanged?.invoke("Erro Gemini: $details")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Could not parse Gemini message", e)
@@ -176,15 +179,20 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket) return
                 isSetupComplete = false
-                if (shouldReconnect) scheduleReconnect("Conexão encerrada")
+                if (shouldReconnect) scheduleReconnect("Conexão encerrada (código $code${if (reason.isBlank()) "" else ": $reason"})")
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (webSocket !== this@ALADWebSocketManager.webSocket) return
                 isSetupComplete = false
+                val detail = buildString {
+                    append("falha no WebSocket")
+                    if (response != null) append(" (HTTP ${response.code}${if (response.message.isNotBlank()) " ${response.message}" else ""})")
+                    t.message?.takeIf { it.isNotBlank() }?.let { append(": $it") }
+                }
                 Log.e(TAG, "Gemini WebSocket failure (HTTP ${response?.code})", t)
-                if (shouldReconnect) scheduleReconnect("Falha na conexão")
-                else onStatusChanged?.invoke("Error: ${t.message ?: "conexão perdida"}")
+                if (shouldReconnect) scheduleReconnect(detail)
+                else onStatusChanged?.invoke("Erro: $detail")
             }
         })
         webSocket = socket
@@ -197,7 +205,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         reconnectAttempts++
         val delay = (1L shl (reconnectAttempts - 1).coerceAtMost(5)).coerceAtMost(MAX_RECONNECT_DELAY_SECONDS)
         Log.w(TAG, "$reason; reconnect attempt $reconnectAttempts in ${delay}s")
-        onStatusChanged?.invoke("Reconnecting")
+        onStatusChanged?.invoke("Reconectando em ${delay}s: $reason")
         reconnectFuture = reconnectExecutor.schedule({
             synchronized(this) {
                 reconnectFuture = null

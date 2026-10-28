@@ -27,6 +27,9 @@ object DubbingSessionRepository {
     private val _audioAmplitude = MutableStateFlow(0f)
     val audioAmplitude: StateFlow<Float> = _audioAmplitude.asStateFlow()
 
+    private val _audioCaptureStatus = MutableStateFlow("Não iniciada")
+    val audioCaptureStatus: StateFlow<String> = _audioCaptureStatus.asStateFlow()
+
     private val _connectionStatus = MutableStateFlow("Disconnected")
     val connectionStatus: StateFlow<String> = _connectionStatus.asStateFlow()
 
@@ -65,6 +68,7 @@ object DubbingSessionRepository {
         _isDubbingRunning.value = running
         if (!running) {
             _audioAmplitude.value = 0f
+            _audioCaptureStatus.value = "Não iniciada"
             _connectionStatus.value = "Disconnected"
             _detectedSourceLanguage.value = ""
             clearSubtitle()
@@ -73,6 +77,10 @@ object DubbingSessionRepository {
 
     fun setAudioAmplitude(amplitude: Float) {
         _audioAmplitude.value = amplitude
+    }
+
+    fun setAudioCaptureStatus(status: String) {
+        _audioCaptureStatus.value = status.trim().ifBlank { "Status desconhecido" }
     }
 
     fun setConnectionStatus(status: String) {
@@ -218,6 +226,7 @@ object DubbingSessionRepository {
     fun resetSession() {
         _isDubbingRunning.value = false
         _audioAmplitude.value = 0f
+        _audioCaptureStatus.value = "Não iniciada"
         _connectionStatus.value = "Disconnected"
         _detectedSourceLanguage.value = ""
         clearSubtitle()

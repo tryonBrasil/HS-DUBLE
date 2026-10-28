@@ -284,12 +284,19 @@ class AudioDubbingForegroundService : Service() {
                 val appUid = applicationInfo.uid
 
                 mediaProjection?.let { projection ->
-                    audioCaptureManager?.startCapture(projection, appUid) { pcmData ->
-                        webSocketManager?.sendAudioData(pcmData)
-                        val currentAmp = DubbingSessionRepository.audioAmplitude.value
-                        val newAmp = AudioUtils.processPcmAmplitude(pcmData, currentAmp)
-                        DubbingSessionRepository.setAudioAmplitude(newAmp)
-                    }
+                    audioCaptureManager?.startCapture(
+                        mediaProjection = projection,
+                        appUid = appUid,
+                        onAudioData = { pcmData ->
+                            webSocketManager?.sendAudioData(pcmData)
+                            val currentAmp = DubbingSessionRepository.audioAmplitude.value
+                            val newAmp = AudioUtils.processPcmAmplitude(pcmData, currentAmp)
+                            DubbingSessionRepository.setAudioAmplitude(newAmp)
+                        },
+                        onCaptureStatus = { status ->
+                            DubbingSessionRepository.setAudioCaptureStatus(status)
+                        }
+                    )
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error during dubbing session startup", e)

@@ -22,6 +22,7 @@ class MainViewModel(private val repository: UserPreferencesRepository) : ViewMod
     // Decoupled session state observed from DubbingSessionRepository
     val isConnected: StateFlow<Boolean> = DubbingSessionRepository.isDubbingRunning
     val audioAmplitude: StateFlow<Float> = DubbingSessionRepository.audioAmplitude
+    val audioCaptureStatus: StateFlow<String> = DubbingSessionRepository.audioCaptureStatus
     val statusMessage: StateFlow<String> = DubbingSessionRepository.connectionStatus
     val liveSubtitleText: StateFlow<String> = DubbingSessionRepository.liveSubtitleText
     val liveSourceSubtitleText: StateFlow<String> = DubbingSessionRepository.liveSourceSubtitleText
