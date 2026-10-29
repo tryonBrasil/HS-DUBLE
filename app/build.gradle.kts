@@ -11,8 +11,8 @@ android {
         applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 28
-        versionName = "1.3.18"
+        versionCode = 29
+        versionName = "1.3.19"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -125,6 +125,8 @@ dependencies {
     // Testing
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.5")
+    androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
+    androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.02.00"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
