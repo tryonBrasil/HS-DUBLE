@@ -48,11 +48,13 @@ class UserPreferencesRepository(private val context: Context) {
     val volumeRatioFlow: Flow<Float> = context.dataStore.data.map { it[VOLUME_RATIO] ?: 1.0f }.distinctUntilChanged()
     val isDubbingMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_DUBBING_MUTED] ?: false }.distinctUntilChanged()
     val originalVolumeFlow: Flow<Float> = context.dataStore.data.map { it[ORIGINAL_VOLUME] ?: 0.30f }.distinctUntilChanged()
-    val isOriginalMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_ORIGINAL_MUTED] ?: false }.distinctUntilChanged()
+    // Start with original game audio muted so the player hears the Portuguese dub by default.
+    val isOriginalMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_ORIGINAL_MUTED] ?: true }.distinctUntilChanged()
     val voicePersonaFlow: Flow<String> = context.dataStore.data.map { it[VOICE_PERSONA] ?: "Puck" }.distinctUntilChanged()
     val dubbingModeFlow: Flow<String> = context.dataStore.data.map { it[DUBBING_MODE] ?: MODE_HYBRID }.distinctUntilChanged()
     val showDualSubtitlesFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DUAL_SUBTITLES] ?: true }.distinctUntilChanged()
-    val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: true }.distinctUntilChanged()
+    // Audio-first mode is the default while OCR work is paused; the setting remains available.
+    val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: false }.distinctUntilChanged()
 
     suspend fun updateWsUrl(url: String) { context.dataStore.edit { it[WS_URL] = url } }
     suspend fun updateApiKey(key: String) { context.dataStore.edit { it[API_KEY] = key } }
