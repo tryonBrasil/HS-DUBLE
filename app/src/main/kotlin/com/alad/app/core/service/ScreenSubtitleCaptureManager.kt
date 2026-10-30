@@ -167,17 +167,10 @@ class ScreenSubtitleCaptureManager(
         val fullBitmap = Bitmap.createBitmap(paddedBitmap, 0, 0, image.width, image.height)
         paddedBitmap.recycle()
 
-        // Game dialogue subtitles are typically rendered in the lower half. Cropping avoids most HUD
-        // and menu text while reducing the amount of pixels OCR must process on each frame.
-        val left = (image.width * 0.05f).toInt().coerceIn(0, image.width - 1)
-        val right = (image.width * 0.95f).toInt().coerceAtMost(image.width)
-        val top = (image.height * 0.52f).toInt().coerceIn(0, image.height - 1)
-        val bottom = (image.height * 0.97f).toInt().coerceAtMost(image.height)
-        val cropWidth = (right - left).coerceAtLeast(1)
-        val cropHeight = (bottom - top).coerceAtLeast(1)
-        val crop = Bitmap.createBitmap(fullBitmap, left, top, cropWidth, cropHeight)
-        fullBitmap.recycle()
-        return crop
+        // Dialogue panels can move with the speaking character/camera. Analyze the
+        // complete frame instead of assuming that subtitles are fixed at the bottom.
+        // The OCR selector below ranks dialogue-like text groups and filters HUD labels.
+        return fullBitmap
     }
 
     private fun runOcr(bitmap: Bitmap) {
@@ -220,28 +213,70 @@ class ScreenSubtitleCaptureManager(
         width: Int,
         height: Int
     ): String {
+        // Prefer Korean when the source text is Korean; otherwise inspect Latin text
+        // (the game may already render localized dialogue).
         val koreanText = koreanResult?.text.orEmpty()
         val latinText = latinResult?.text.orEmpty()
         val selected = if (hasHangul(koreanText)) koreanResult else {
             latinResult?.takeIf { it.text.isNotBlank() } ?: koreanResult
         } ?: return ""
 
-        val lines = selected.textBlocks
-            .flatMap { block -> block.lines }
+        data class LocatedLine(
+            val text: String,
+            val centerX: Float,
+            val centerY: Float,
+            val top: Float,
+            val bottom: Float,
+            val height: Float
+        )
+
+        val lines = selected.textBlocks.flatMap { block -> block.lines }
             .mapNotNull { line ->
-                val lineText = line.text.trim()
-                val box = line.boundingBox
-                if (box == null || lineText.length < 2) return@mapNotNull null
-                val centerX = box.centerX().toFloat() / width.coerceAtLeast(1)
-                val heightRatio = box.height().toFloat() / height.coerceAtLeast(1)
-                if (centerX < 0.08f || centerX > 0.92f || heightRatio < 0.012f) null
-                else box.bottom to lineText
+                val box = line.boundingBox ?: return@mapNotNull null
+                val value = line.text.trim()
+                if (value.length < 2) return@mapNotNull null
+                val x = box.centerX().toFloat() / width.coerceAtLeast(1)
+                val y = box.centerY().toFloat() / height.coerceAtLeast(1)
+                val h = box.height().toFloat() / height.coerceAtLeast(1)
+                // Exclude tiny nameplates/HUD fragments and extreme screen edges,
+                // but deliberately allow dialogue anywhere in the playable area.
+                if (x < 0.12f || x > 0.88f || y < 0.12f || y > 0.96f || h < 0.010f) {
+                    null
+                } else LocatedLine(value, x, y, box.top.toFloat(), box.bottom.toFloat(), h)
             }
-            .sortedBy { it.first }
-            .takeLast(3)
-            .map { it.second }
-        val candidate = lines.joinToString(" ").replace(Regex("\\s+"), " ").trim()
-        return candidate.ifBlank { selected.text.trim() }
+            .sortedBy { it.centerY }
+
+        if (lines.isEmpty()) return ""
+
+        // Build compact vertical groups. A moving dialogue panel normally produces
+        // adjacent lines with similar horizontal alignment; HUD elements are usually
+        // isolated or far apart.
+        data class Candidate(val lines: List<LocatedLine>, val score: Float)
+        val candidates = mutableListOf<Candidate>()
+        for (first in lines.indices) {
+            val group = mutableListOf(lines[first])
+            for (next in first + 1 until minOf(lines.size, first + 5)) {
+                val previous = group.last()
+                val current = lines[next]
+                val gap = current.top - previous.bottom
+                if (gap > height * 0.065f || kotlin.math.abs(current.centerX - previous.centerX) > 0.34f) break
+                group += current
+            }
+            val averageX = group.map { it.centerX }.average().toFloat()
+            val averageY = group.map { it.centerY }.average().toFloat()
+            val textLength = group.sumOf { it.text.length }
+            val centered = 1f - (kotlin.math.abs(averageX - 0.5f) * 1.7f)
+            val verticalPenalty = if (averageY < 0.20f) 0.45f else 1f
+            val multiLineBonus = (group.size - 1).coerceAtMost(3) * 0.30f
+            val usefulTextBonus = (textLength.coerceAtMost(100) / 100f) * 0.35f
+            val score = centered.coerceAtLeast(0f) * verticalPenalty + multiLineBonus + usefulTextBonus
+            if (group.size >= 2 || textLength >= 12) candidates += Candidate(group, score)
+        }
+
+        val best = candidates.maxByOrNull { it.score } ?: return ""
+        return best.lines.joinToString(" ") { it.text }
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 
     private fun hasHangul(text: String): Boolean = text.any {
