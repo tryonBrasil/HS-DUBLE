@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">HS Voice Translator</string>
-    <string name="app_name_full">HS Voice Translator — Tradução e Dublagem de Jogos</string>
+    <string name="app_name_full">HS Voice Translator — Jogue sem barreiras</string>
     <string name="system_status">Status do sistema</string>
     <string name="status_connected">Dublagem ao vivo ativa</string>
     <string name="status_disconnected">Pronto / Desconectado</string>
