@@ -11,8 +11,8 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = NeonCyan,
-    secondary = NeonPurple,
+    primary = PrimaryBlue,
+    secondary = PrimaryPurple,
     tertiary = AccentTeal,
     background = DeepSpace,
     surface = GlassSurfaceDark,
@@ -35,7 +35,8 @@ fun ALADTheme(
             val context = view.context
             if (context is Activity) {
                 val window = context.window
-                window.statusBarColor = colorScheme.background.toArgb()
+                window.statusBarColor = DeepSpace.toArgb()
+                window.navigationBarColor = DeepSpace.toArgb()
                 WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
             }
         }
