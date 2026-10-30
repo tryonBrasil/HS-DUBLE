@@ -41,9 +41,9 @@ fun AmbientBackground(
 ) {
     val bgBrush = Brush.verticalGradient(
         colors = listOf(
-            Color(0xFF060911),
-            Color(0xFF0A101D),
-            Color(0xFF070B14)
+            Color(0xFF07090E),
+            Color(0xFF101018),
+            Color(0xFF080A10)
         )
     )
 
