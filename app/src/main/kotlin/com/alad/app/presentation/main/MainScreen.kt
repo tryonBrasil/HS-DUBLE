@@ -277,14 +277,14 @@ fun MainScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
+                                .background(DeepSpaceElevated)
                                 .border(
                                     BorderStroke(
                                         1.5.dp,
                                         Brush.linearGradient(
                                             listOf(
-                                                NeonCyan.copy(alpha = 0.8f),
-                                                NeonPurple.copy(alpha = 0.5f)
+                                                NeonCyan.copy(alpha = 0.9f),
+                                                NeonPurple.copy(alpha = 0.65f)
                                             )
                                         )
                                     ),
