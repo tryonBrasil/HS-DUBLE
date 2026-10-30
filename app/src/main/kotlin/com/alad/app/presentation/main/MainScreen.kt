@@ -294,7 +294,7 @@ fun MainScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
-                                painter = painterResource(id = R.mipmap.ic_launcher),
+                                painter = painterResource(id = R.drawable.ic_hs_logo),
                                 contentDescription = stringResource(R.string.app_name_full),
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -311,7 +311,7 @@ fun MainScreen(
                                 letterSpacing = 1.sp
                             )
                             Text(
-                                text = "Tradução e dublagem de jogos",
+                                text = "JOGUE SEM BARREIRAS",
                                 color = NeonCyan.copy(alpha = 0.85f),
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
