@@ -21,6 +21,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.alad.app.core.service.AudioDubbingForegroundService
 import com.alad.app.data.repository.UserPreferencesRepository
+import com.alad.app.presentation.main.AboutScreen
 import com.alad.app.presentation.main.MainScreen
 import com.alad.app.presentation.main.MainViewModel
 import com.alad.app.presentation.main.MainViewModelFactory
@@ -77,6 +78,7 @@ class MainActivity : ComponentActivity() {
                             MainScreen(
                                 viewModel = mainViewModel,
                                 onNavigateToSettings = { currentScreen = "SETTINGS" },
+                                onNavigateToAbout = { currentScreen = "ABOUT" },
                                 onConnectClicked = { checkPermissionsAndConnect() },
                                 onDisconnectClicked = { stopDubbingService() }
                             )
@@ -90,6 +92,7 @@ class MainActivity : ComponentActivity() {
                                 onBack = { currentScreen = "MAIN" }
                             )
                         }
+                        "ABOUT" -> AboutScreen(onBack = { currentScreen = "MAIN" })
                     }
                 }
             }
