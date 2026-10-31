@@ -144,7 +144,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.8.sp,
-                    modifier = Modifier.padding(start = 4.dp, bottom = (-10).dp)
+                    modifier = Modifier.padding(start = 4.dp).offset(y = (-10).dp)
                 )
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
@@ -175,7 +175,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.8.sp,
-                    modifier = Modifier.padding(start = 4.dp, bottom = (-10).dp)
+                    modifier = Modifier.padding(start = 4.dp).offset(y = (-10).dp)
                 )
 
                 // 1. API Key Configuration
@@ -320,7 +320,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                     fontSize = 10.sp,
                     fontWeight = FontWeight.ExtraBold,
                     letterSpacing = 1.8.sp,
-                    modifier = Modifier.padding(start = 4.dp, bottom = (-10).dp)
+                    modifier = Modifier.padding(start = 4.dp).offset(y = (-10).dp)
                 )
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
