@@ -11,11 +11,11 @@ import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryBlue,
-    secondary = PrimaryPurple,
-    tertiary = AccentTeal,
+    primary = NeonCyan,
+    secondary = NeonRose,
+    tertiary = NeonCoral,
     background = DeepSpace,
-    surface = GlassSurfaceDark,
+    surface = DeepSpaceElevated,
     onPrimary = Color.Black,
     onSecondary = TextPrimary,
     onTertiary = TextPrimary,
