@@ -172,7 +172,9 @@ class AudioDubbingForegroundService : Service() {
                 val voicePersona = repository.voicePersonaFlow.first()
                 val dubbingMode = repository.dubbingModeFlow.first()
                 val showDualSubtitles = repository.showDualSubtitlesFlow.first()
-                val screenSubtitleMode = repository.screenSubtitleModeFlow.first()
+                // OCR is intentionally paused for this release, including for older saved preferences.
+                repository.updateScreenSubtitleMode(false)
+                val screenSubtitleMode = false
 
                 // Sync repository values into the active session
                 DubbingSessionRepository.setDubbingVolume(volumeRatio)
