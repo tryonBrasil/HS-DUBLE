@@ -252,8 +252,8 @@ fun FloatingControllerCapsule(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xEE090E1A),
-                        Color(0xF504060C)
+                        Color(0xF20D1017),
+                        Color(0xF807090E)
                     )
                 )
             )
@@ -460,8 +460,8 @@ fun FloatingCinemaSubtitles(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xF0080D1A),
-                        Color(0xF7040710)
+                        Color(0xF20D1017),
+                        Color(0xF807090E)
                     )
                 )
             )
