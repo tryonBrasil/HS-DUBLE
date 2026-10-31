@@ -64,6 +64,8 @@ class AudioDubbingForegroundService : Service() {
     private var audioPlayerManager: AudioPlayerManager? = null
     private var webSocketManager: ALADWebSocketManager? = null
     private var settingsObservationJob: Job? = null
+    @Volatile private var startupJob: Job? = null
+    @Volatile private var isStopping = false
     private var screenSubtitleCaptureManager: ScreenSubtitleCaptureManager? = null
     private var screenSubtitleTts: TextToSpeech? = null
     @Volatile private var screenSubtitleTtsReady = false
@@ -96,6 +98,10 @@ class AudioDubbingForegroundService : Service() {
 
                 if (resultCode != 0 && data != null) {
                     startDubbing(resultCode, data)
+                } else {
+                    Log.e(TAG, "ACTION_START received without valid MediaProjection permission data")
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf(startId)
                 }
             }
             ACTION_STOP -> {
@@ -108,7 +114,13 @@ class AudioDubbingForegroundService : Service() {
         return START_NOT_STICKY
     }
 
+    @Synchronized
     private fun startDubbing(resultCode: Int, data: Intent) {
+        if (DubbingSessionRepository.isDubbingRunning.value || startupJob?.isActive == true) {
+            Log.w(TAG, "Ignoring duplicate dubbing start request")
+            return
+        }
+        isStopping = false
         DubbingSessionRepository.setDubbingRunning(true)
         DubbingSessionRepository.setConnectionStatus(getString(R.string.status_initializing))
         DubbingSessionRepository.clearSubtitle()
@@ -119,6 +131,8 @@ class AudioDubbingForegroundService : Service() {
             Log.e(TAG, "Failed to get MediaProjection! ResultCode: $resultCode")
             DubbingSessionRepository.setConnectionStatus(getString(R.string.status_capture_denied))
             DubbingSessionRepository.setDubbingRunning(false)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
             return
         }
 
@@ -126,7 +140,9 @@ class AudioDubbingForegroundService : Service() {
         val projectionCallback = object : MediaProjection.Callback() {
             override fun onStop() {
                 Log.d(TAG, "MediaProjection stopped by system")
+                if (isStopping) return
                 serviceScope.launch(Dispatchers.Main) {
+                    if (isStopping) return@launch
                     try {
                         stopDubbing()
                         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -140,7 +156,7 @@ class AudioDubbingForegroundService : Service() {
         projection.registerCallback(projectionCallback, Handler(Looper.getMainLooper()))
         mediaProjection = projection
 
-        serviceScope.launch {
+        startupJob = serviceScope.launch {
             try {
                 val repository = UserPreferencesRepository(applicationContext)
 
@@ -335,9 +351,17 @@ class AudioDubbingForegroundService : Service() {
                     )
                 }
                 }
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                Log.i(TAG, "Dubbing startup cancelled")
+                throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Error during dubbing session startup", e)
-                DubbingSessionRepository.setConnectionStatus("Error: ${e.message}")
+                DubbingSessionRepository.setConnectionStatus("Erro ao iniciar: ${e.message ?: e.javaClass.simpleName}")
+                stopDubbing()
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            } finally {
+                startupJob = null
             }
         }
     }
@@ -389,7 +413,11 @@ class AudioDubbingForegroundService : Service() {
         }
     }
 
+    @Synchronized
     private fun stopDubbing() {
+        isStopping = true
+        startupJob?.cancel()
+        startupJob = null
         DubbingSessionRepository.resetSession()
 
         screenSubtitleCaptureManager?.stop()
@@ -407,14 +435,16 @@ class AudioDubbingForegroundService : Service() {
         audioPlayerManager?.stop()
         audioPlayerManager = null
 
-        webSocketManager?.disconnect()
+        webSocketManager?.shutdown()
         webSocketManager = null
 
         settingsObservationJob?.cancel()
         settingsObservationJob = null
 
-        mediaProjection?.stop()
+        val projectionToStop = mediaProjection
         mediaProjection = null
+        runCatching { projectionToStop?.stop() }
+            .onFailure { Log.w(TAG, "Error releasing MediaProjection", it) }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -422,10 +452,9 @@ class AudioDubbingForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        stopDubbing()
+        serviceScope.cancel()
         super.onDestroy()
-        if (DubbingSessionRepository.isDubbingRunning.value) {
-            stopDubbing()
-        }
     }
 
     private fun createNotificationChannel() {
