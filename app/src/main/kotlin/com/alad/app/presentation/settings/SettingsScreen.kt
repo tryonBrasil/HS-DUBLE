@@ -46,6 +46,9 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
     val showDualSubtitles by viewModel.showDualSubtitles.collectAsState()
     val sourceLang by viewModel.sourceLang.collectAsState()
     val targetLang by viewModel.targetLang.collectAsState()
+    val dubbingVolume by viewModel.volumeRatio.collectAsState()
+    val originalVolume by viewModel.originalVolume.collectAsState()
+    val isOriginalMuted by viewModel.isOriginalMuted.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -307,6 +310,73 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
+                        }
+                    }
+                }
+
+                Text(
+                    "AJUSTES DE ÁUDIO",
+                    color = Color(0xFFFF526B),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = 1.8.sp,
+                    modifier = Modifier.padding(start = 4.dp, bottom = (-10).dp)
+                )
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(20.dp),
+                    backgroundColor = Color(0xFF0B121B),
+                    borderColor = Color(0xFFFF1738),
+                    borderAlpha = 0.32f
+                ) {
+                    Column(Modifier.padding(17.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Volume da dublagem", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Spacer(Modifier.weight(1f))
+                            Text("${(dubbingVolume * 100).toInt()}%", color = Color(0xFFFF526B), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Slider(
+                            value = dubbingVolume.coerceIn(0f, 1f),
+                            onValueChange = viewModel::updateVolumeRatio,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFFF1738),
+                                activeTrackColor = Color(0xFFFF1738),
+                                inactiveTrackColor = Color(0xFF354253)
+                            )
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Volume do áudio original", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Spacer(Modifier.weight(1f))
+                            Text("${(originalVolume * 100).toInt()}%", color = Color(0xFFFF526B), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        Slider(
+                            value = originalVolume.coerceIn(0f, 1f),
+                            onValueChange = viewModel::updateOriginalVolume,
+                            enabled = !isOriginalMuted,
+                            colors = SliderDefaults.colors(
+                                thumbColor = Color(0xFFFF1738),
+                                activeTrackColor = Color(0xFFFF1738),
+                                inactiveTrackColor = Color(0xFF354253),
+                                disabledThumbColor = Color(0xFF667080),
+                                disabledActiveTrackColor = Color(0xFF354253)
+                            )
+                        )
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Silenciar áudio original", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text("Remove o som original do jogo durante a dublagem.", color = TextSecondary, fontSize = 11.sp)
+                            }
+                            Switch(
+                                checked = isOriginalMuted,
+                                onCheckedChange = viewModel::updateOriginalMuted,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFFFF1738),
+                                    uncheckedThumbColor = Color.Gray,
+                                    uncheckedTrackColor = Color(0xFF354253)
+                                )
+                            )
                         }
                     }
                 }
