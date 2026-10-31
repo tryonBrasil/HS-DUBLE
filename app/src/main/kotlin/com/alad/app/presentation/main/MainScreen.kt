@@ -193,7 +193,7 @@ fun MainScreen(
                     .fillMaxWidth()
                     .padding(16.dp),
                 shape = RoundedCornerShape(24.dp),
-                backgroundColor = Color(0xFF10192C),
+                backgroundColor = DeepSpaceElevated,
                 borderColor = NeonCyan,
                 borderAlpha = 0.35f
             ) {
