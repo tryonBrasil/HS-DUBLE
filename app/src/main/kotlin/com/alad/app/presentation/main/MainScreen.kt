@@ -355,11 +355,38 @@ fun MainScreen(
             ) {
 
                 // 1. Status Indicator — use the real API state, not just the running service flag.
-                StatusBadge(
-                    isConnected = apiReady,
-                    statusText = apiStatusLabel,
-                    modifier = Modifier.fillMaxWidth()
+                HomeTranslationHero(
+                    isTranslating = isConnected,
+                    sourceLabel = supportedLanguages.find { it.first == sourceLang }?.second ?: "Detecção automática",
+                    targetLabel = supportedLanguages.find { it.first == targetLang }?.second ?: targetLang
                 )
+
+                StartStopDubbingButton(
+                    isConnected = isConnected,
+                    onClick = {
+                        if (isConnected) onDisconnectClicked() else onConnectClicked()
+                    }
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HomeModeTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Dublagem",
+                        subtitle = "Áudio traduzido",
+                        selected = selectedMode == com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY,
+                        onClick = { viewModel.updateDubbingMode(com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY) }
+                    )
+                    HomeModeTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Legenda + áudio",
+                        subtitle = "Texto e voz",
+                        selected = selectedMode == com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID,
+                        onClick = { viewModel.updateDubbingMode(com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID) }
+                    )
+                }
 
                 // Game capture status card, styled after the reference's game-detection screen.
                 val captureColor = when {
@@ -972,18 +999,6 @@ fun MainScreen(
                     }
                 }
 
-                // 7. Start/Stop Dubbing Action Button
-                StartStopDubbingButton(
-                    isConnected = isConnected,
-                    onClick = {
-                        if (isConnected) {
-                            onDisconnectClicked()
-                        } else {
-                            onConnectClicked()
-                        }
-                    }
-                )
-
                 OutlinedButton(
                     onClick = {
                         if (!isCheckingUpdates) {
@@ -1262,6 +1277,86 @@ fun AnimatedWaveform(
 }
 
 @Composable
+@Composable
+private fun HomeTranslationHero(
+    isTranslating: Boolean,
+    sourceLabel: String,
+    targetLabel: String
+) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        backgroundColor = Color(0xFF0B121B),
+        borderColor = Color(0xFFFF1738),
+        borderAlpha = 0.35f
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(if (isTranslating) Color(0xFF20D58A) else Color(0xFF778394)))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (isTranslating) "Traduzindo" else "Pronto para traduzir",
+                    color = if (isTranslating) Color(0xFF36E59B) else Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text(if (sourceLabel.contains("Coreano", true)) "🇰🇷" else "🌐", fontSize = 25.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(sourceLabel, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("ORIGEM", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                }
+                Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFFFF2948), modifier = Modifier.size(24.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text(if (targetLabel.contains("Portugu", true)) "🇧🇷" else "🌐", fontSize = 25.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(targetLabel, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("DESTINO", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeModeTile(
+    modifier: Modifier,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(15.dp))
+            .background(if (selected) Color(0xFF45101B) else Color(0xFF101822))
+            .border(1.dp, if (selected) Color(0xFFFF1738) else Color(0xFF263342), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 13.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            if (title == "Dublagem") Icons.AutoMirrored.Filled.VolumeUp else Icons.Default.Subtitles,
+            contentDescription = null,
+            tint = if (selected) Color(0xFFFF526B) else TextSecondary,
+            modifier = Modifier.size(21.dp)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+        Text(subtitle, color = TextSecondary, fontSize = 10.sp, maxLines = 1)
+    }
+}
+
 fun StartStopDubbingButton(
     isConnected: Boolean,
     onClick: () -> Unit
@@ -1269,90 +1364,49 @@ fun StartStopDubbingButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
-
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1.0f,
+        targetValue = if (isPressed) 0.94f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "scale"
+        label = "power_button_scale"
     )
 
-    val gradientColors = if (isConnected) {
-        listOf(NeonRose, NeonCyan, NeonCoral)
-    } else {
-        listOf(NeonCyan, NeonCyan, NeonCoral)
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .scale(scale)
-            .clip(RoundedCornerShape(32.dp))
-            .background(
-                Brush.horizontalGradient(gradientColors)
-            )
-            .border(
-                BorderStroke(
-                    1.2.dp,
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.70f),
-                            Color.White.copy(alpha = 0.15f)
-                        )
-                    )
-                ),
-                shape = RoundedCornerShape(32.dp)
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    onClick()
-                }
-            ),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Specular top highlight line inside pill
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(1.dp)
-                .align(Alignment.TopCenter)
-                .padding(top = 1.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.6f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .size(88.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color(0xFFFF526B), Color(0xFFE60026), Color(0xFF8F0018))))
+                .border(2.dp, Color(0xFFFFA0AE).copy(alpha = 0.65f), CircleShape)
+                .clickable(interactionSource = interactionSource, indication = null) {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    onClick()
+                },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (isConnected) Icons.Default.Stop else Icons.Default.PlayArrow,
-                contentDescription = null,
+                contentDescription = if (isConnected) "Parar tradução" else "Iniciar tradução",
                 tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Text(
-                text = if (isConnected) stringResource(R.string.btn_stop) else stringResource(R.string.btn_start),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    letterSpacing = 0.5.sp,
-                    fontSize = 17.5.sp
-                )
+                modifier = Modifier.size(38.dp)
             )
         }
+        Spacer(Modifier.height(9.dp))
+        Text(
+            if (isConnected) "Toque para parar" else "Toque para iniciar / parar",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            "TRADUÇÃO EM TEMPO REAL",
+            color = Color(0xFFFF526B),
+            fontSize = 9.sp,
+            letterSpacing = 1.6.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
