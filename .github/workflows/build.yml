@@ -71,6 +71,9 @@ jobs:
           test -n "$HS_KEY_PASSWORD" || { echo "Missing HS_KEY_PASSWORD secret"; exit 1; }
           test -s hs-voice-translator-release.jks || { echo "Release keystore was not created"; exit 1; }
 
+      - name: Run unit tests and Android lint
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug
+
       - name: Build debug and release APKs
         env:
           HS_STORE_PASSWORD: ${{ secrets.HS_STORE_PASSWORD }}
@@ -82,8 +85,16 @@ jobs:
         run: |
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK" || { echo "Release APK not found"; exit 1; }
-          "$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)/apksigner" verify --verbose --print-certs "$APK"
-          echo "Release APK signature verification passed."
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n 1)"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | grep -F "package: name='com.hstech.voicetranslator'" >/dev/null
+          ACTUAL_CERT_SHA256=$("$BUILD_TOOLS/apksigner" verify --print-certs "$APK" | sed -n 's/.*certificate SHA-256 digest: //p' | head -n 1 | tr -d ':' | tr '[:upper:]' '[:lower:]')
+          EXPECTED_CERT_SHA256="7dbe6e41db8ca1bee393ecd5e615cc824750c6f5cb17d20d8f4a1617f560de6d"
+          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256" || {
+            echo "Release certificate mismatch. Expected $EXPECTED_CERT_SHA256, got $ACTUAL_CERT_SHA256"
+            exit 1
+          }
+          echo "Release APK package and signing certificate verification passed."
 
       - name: Remove signing key file
         if: always()

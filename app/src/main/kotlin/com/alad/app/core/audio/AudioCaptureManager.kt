@@ -12,6 +12,8 @@ class AudioCaptureManager {
     @Volatile private var audioRecord: AudioRecord? = null
     @Volatile private var isRecording = false
     @Volatile private var audioSignalDetected = false
+    @Volatile private var captureThread: Thread? = null
+    private val lifecycleLock = Any()
 
     companion object {
         private const val TAG = "AudioCaptureManager"
@@ -19,7 +21,7 @@ class AudioCaptureManager {
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         val MIN_BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        const val CHUNK_SIZE = 3200 // 100ms of 16kHz 16-bit mono PCM, as recommended by Gemini Live Translate
+        const val CHUNK_SIZE = 3200 // 100 ms, 16 kHz, mono, PCM 16-bit
     }
 
     @SuppressLint("MissingPermission")
@@ -29,98 +31,137 @@ class AudioCaptureManager {
         onAudioData: (ByteArray) -> Unit,
         onCaptureStatus: ((String) -> Unit)? = null
     ) {
-        if (isRecording) return
-        audioSignalDetected = false
-        onCaptureStatus?.invoke("Iniciando captura de áudio interno")
+        synchronized(lifecycleLock) {
+            if (isRecording || captureThread?.isAlive == true) return
+            audioSignalDetected = false
+            onCaptureStatus?.invoke("Iniciando captura de áudio interno")
 
-        try {
-            val configBuilder = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
-                .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-                .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
-                
-            if (appUid > 0) {
-                configBuilder.excludeUid(appUid)
-            }
-                
-            val config = configBuilder.build()
+            var recorder: AudioRecord? = null
+            try {
+                val configBuilder = AudioPlaybackCaptureConfiguration.Builder(mediaProjection)
+                    .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
+                    .addMatchingUsage(AudioAttributes.USAGE_GAME)
+                    .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
+                if (appUid > 0) configBuilder.excludeUid(appUid)
 
-            val format = AudioFormat.Builder()
-                .setEncoding(AUDIO_FORMAT)
-                .setSampleRate(SAMPLE_RATE)
-                .setChannelMask(CHANNEL_CONFIG)
-                .build()
+                val format = AudioFormat.Builder()
+                    .setEncoding(AUDIO_FORMAT)
+                    .setSampleRate(SAMPLE_RATE)
+                    .setChannelMask(CHANNEL_CONFIG)
+                    .build()
 
-            val bufferSize = maxOf(MIN_BUFFER_SIZE, CHUNK_SIZE * 4)
+                val bufferSize = maxOf(MIN_BUFFER_SIZE, CHUNK_SIZE * 4)
+                val activeRecorder = AudioRecord.Builder()
+                    .setAudioFormat(format)
+                    .setAudioPlaybackCaptureConfig(configBuilder.build())
+                    .setBufferSizeInBytes(bufferSize)
+                    .build()
+                recorder = activeRecorder
 
-            audioRecord = AudioRecord.Builder()
-                .setAudioFormat(format)
-                .setAudioPlaybackCaptureConfig(config)
-                .setBufferSizeInBytes(bufferSize)
-                .build()
-
-            if (audioRecord?.state != AudioRecord.STATE_INITIALIZED) {
-                val message = "Falha: AudioRecord não inicializou (estado ${audioRecord?.state})"
-                Log.e(TAG, message)
-                onCaptureStatus?.invoke(message)
-                return
-            }
-
-            audioRecord?.startRecording()
-            isRecording = true
-            Log.d(TAG, "AudioPlaybackCapture started successfully. Recording state: ${audioRecord?.recordingState}")
-            onCaptureStatus?.invoke("Captura ativa; aguardando áudio do jogo")
-            
-            Thread({
-                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
-                val buffer = ByteArray(CHUNK_SIZE)
-                var chunksRead = 0
-                val captureStartedAt = android.os.SystemClock.elapsedRealtime()
-                var warnedNoAudio = false
-                while (isRecording) {
-                    val read = audioRecord?.read(buffer, 0, buffer.size) ?: 0
-                    if (read > 0) {
-                        chunksRead++
-                        if (chunksRead % 100 == 0) {
-                            Log.d(TAG, "Captured 100 chunks of size $read ($CHUNK_SIZE expected)")
-                        }
-                        val chunk = buffer.copyOf(read)
-                        val rms = AudioUtils.calculateRms(chunk)
-                        if (!audioSignalDetected && rms >= 250f) {
-                            audioSignalDetected = true
-                            Log.i(TAG, "Non-silent game audio detected (RMS=$rms)")
-                            onCaptureStatus?.invoke("Áudio do jogo detectado (sinal RMS ${rms.toInt()})")
-                        } else if (!audioSignalDetected && !warnedNoAudio &&
-                            android.os.SystemClock.elapsedRealtime() - captureStartedAt >= 10_000L) {
-                            warnedNoAudio = true
-                            val warning = "Nenhum áudio detectado após 10 s. Confirme o volume do jogo e se ele permite captura interna."
-                            Log.w(TAG, warning)
-                            onCaptureStatus?.invoke(warning)
-                        }
-                        onAudioData(chunk)
-                    } else if (read < 0) {
-                        val message = "Falha na leitura do áudio interno (código $read)"
-                        Log.e(TAG, message)
-                        onCaptureStatus?.invoke(message)
-                        break
-                    }
+                if (activeRecorder.state != AudioRecord.STATE_INITIALIZED) {
+                    val message = "Falha: AudioRecord não inicializou (estado ${activeRecorder.state})"
+                    Log.e(TAG, message)
+                    onCaptureStatus?.invoke(message)
+                    activeRecorder.release()
+                    recorder = null
+                    return
                 }
-            }, "AudioCaptureThread").start()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error starting capture", e)
-            onCaptureStatus?.invoke("Erro na captura de áudio: ${e.message ?: e.javaClass.simpleName}")
+
+                activeRecorder.startRecording()
+                if (activeRecorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                    throw IllegalStateException("AudioRecord não entrou em estado de gravação")
+                }
+
+                audioRecord = activeRecorder
+                isRecording = true
+                onCaptureStatus?.invoke("Captura ativa; aguardando áudio do jogo")
+
+                val captureWorker = Thread({
+                    android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
+                    val buffer = ByteArray(CHUNK_SIZE)
+                    val startedAt = android.os.SystemClock.elapsedRealtime()
+                    var warnedNoAudio = false
+                    var chunksRead = 0
+                    try {
+                        while (isRecording && !Thread.currentThread().isInterrupted) {
+                            val read = activeRecorder.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
+                            if (read > 0) {
+                                chunksRead++
+                                if (chunksRead % 100 == 0) {
+                                    Log.d(TAG, "Captured 100 audio chunks; latest size=$read")
+                                }
+                                val chunk = buffer.copyOf(read)
+                                val rms = AudioUtils.calculateRms(chunk)
+                                if (!audioSignalDetected && rms >= 250f) {
+                                    audioSignalDetected = true
+                                    Log.i(TAG, "Non-silent game audio detected (RMS=$rms)")
+                                    onCaptureStatus?.invoke("Áudio do jogo detectado (sinal RMS ${rms.toInt()})")
+                                } else if (!audioSignalDetected && !warnedNoAudio &&
+                                    android.os.SystemClock.elapsedRealtime() - startedAt >= 10_000L
+                                ) {
+                                    warnedNoAudio = true
+                                    val warning = "Nenhum áudio detectado após 10 s. Confirme o volume do jogo e se ele permite captura interna."
+                                    Log.w(TAG, warning)
+                                    onCaptureStatus?.invoke(warning)
+                                }
+                                onAudioData(chunk)
+                            } else if (read < 0) {
+                                val message = "Falha na leitura do áudio interno (código $read)"
+                                Log.e(TAG, message)
+                                onCaptureStatus?.invoke(message)
+                                break
+                            }
+                        }
+                    } catch (e: Exception) {
+                        if (isRecording) {
+                            Log.e(TAG, "Audio capture thread failed", e)
+                            onCaptureStatus?.invoke("Erro na captura: ${e.message ?: e.javaClass.simpleName}")
+                        }
+                    } finally {
+                        isRecording = false
+                    }
+                }, "AudioCaptureThread").apply { isDaemon = true }
+                captureThread = captureWorker
+                captureWorker.start()
+            } catch (e: Exception) {
+                Log.e(TAG, "Error starting capture", e)
+                isRecording = false
+                audioRecord = null
+                runCatching { recorder?.stop() }
+                runCatching { recorder?.release() }
+                onCaptureStatus?.invoke("Erro na captura de áudio: ${e.message ?: e.javaClass.simpleName}")
+            }
         }
     }
 
     fun stopCapture() {
-        isRecording = false
-        audioSignalDetected = false
-        try {
-            audioRecord?.stop()
-            audioRecord?.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping audioRecord", e)
+        val recorder: AudioRecord?
+        val thread: Thread?
+        synchronized(lifecycleLock) {
+            isRecording = false
+            audioSignalDetected = false
+            recorder = audioRecord
+            thread = captureThread
+            audioRecord = null
+            captureThread = null
         }
-        audioRecord = null
+
+        try {
+            if (recorder?.recordingState == AudioRecord.RECORDSTATE_RECORDING) recorder.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping AudioRecord", e)
+        }
+        if (thread != null && thread !== Thread.currentThread()) {
+            try {
+                thread.join(500)
+            } catch (e: InterruptedException) {
+                Thread.currentThread().interrupt()
+            }
+        }
+        try {
+            recorder?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error releasing AudioRecord", e)
+        }
     }
 }

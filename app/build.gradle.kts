@@ -11,8 +11,8 @@ android {
         applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 38
-        versionName = "1.3.28"
+        versionCode = 40
+        versionName = "1.3.30"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -66,8 +66,10 @@ android {
         }
     }
     lint {
-        checkReleaseBuilds = false
-        abortOnError = false
+        checkReleaseBuilds = true
+        abortOnError = true
+        // Persian resources are intentionally partial; Portuguese is the primary UI.
+        disable += "MissingTranslation"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
