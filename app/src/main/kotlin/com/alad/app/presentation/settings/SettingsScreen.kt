@@ -160,7 +160,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                         LanguagePreferenceDropdown(
                             title = "Idioma de destino",
                             selectedCode = targetLang,
-                            options = supportedLanguages,
+                            options = supportedLanguages.filterNot { it.first == "pt" } + ("pt-BR" to "🇧🇷 Português (BR)"),
                             onSelected = viewModel::updateTargetLang
                         )
                     }
