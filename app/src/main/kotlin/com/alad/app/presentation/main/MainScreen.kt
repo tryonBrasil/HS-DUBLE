@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.alad.app.R
+import com.alad.app.UpdateInstaller
 import com.alad.app.ui.theme.*
 import kotlin.math.abs
 import kotlin.math.exp
@@ -122,9 +123,8 @@ fun MainScreen(
     var updateDialogMessage by remember { mutableStateOf<String?>(null) }
     var updateDownloadUrl by remember { mutableStateOf<String?>(null) }
 
-    // Consulta automaticamente as versões publicadas ao abrir a tela principal.
-    // Só mostra aviso quando existe uma versão mais nova; falhas ficam silenciosas
-    // para não interromper o uso e o botão manual continua disponível.
+    // Verifica a versão publicada ao abrir o app. Se houver uma versão mais nova,
+    // baixa automaticamente e entrega o APK ao instalador seguro do Android.
     LaunchedEffect(Unit) {
         if (!isCheckingUpdates) {
             isCheckingUpdates = true
@@ -132,8 +132,8 @@ fun MainScreen(
                 runCatching {
                     val connection = URL("https://api.github.com/repos/tryonBrasil/HS-DUBLE/releases?per_page=20")
                         .openConnection() as java.net.HttpURLConnection
-                    connection.connectTimeout = 10000
-                    connection.readTimeout = 10000
+                    connection.connectTimeout = 12000
+                    connection.readTimeout = 12000
                     connection.setRequestProperty("Accept", "application/vnd.github+json")
                     connection.setRequestProperty("User-Agent", "HS-Voice-Translator-Android")
                     try {
@@ -144,23 +144,18 @@ fun MainScreen(
                         val release = (0 until releases.length())
                             .mapNotNull { releases.optJSONObject(it) }
                             .firstOrNull { candidate ->
-                                candidate.optString("tag_name").removePrefix("v")
-                                    .matches(Regex("\\d+(\\.\\d+)*"))
+                                !candidate.optBoolean("draft", false) &&
+                                    candidate.optString("tag_name").removePrefix("v")
+                                        .matches(Regex("\\d+(\\.\\d+)*"))
                             } ?: throw IllegalStateException("Nenhuma versão válida encontrada.")
                         val latestVersion = release.optString("tag_name").removePrefix("v")
                         val currentVersion = context.packageManager
-                            .getPackageInfo(context.packageName, 0).versionName ?: "1.3.4"
+                            .getPackageInfo(context.packageName, 0).versionName ?: "0"
                         val apkUrl = release.optJSONArray("assets")
                             ?.let { assets ->
                                 (0 until assets.length()).map { assets.getJSONObject(it) }
-                                    .firstOrNull {
-                                        it.optString("name").contains("release", ignoreCase = true) &&
-                                            it.optString("name").endsWith(".apk", ignoreCase = true)
-                                    }
+                                    .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
                                     ?.optString("browser_download_url")
-                                    ?: (0 until assets.length()).map { assets.getJSONObject(it) }
-                                        .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
-                                        ?.optString("browser_download_url")
                             }.orEmpty()
                         Triple(currentVersion, latestVersion, apkUrl)
                     } finally {
@@ -178,15 +173,18 @@ fun MainScreen(
                         comparison.takeIf { it != 0 }
                     }?.let { it > 0 } ?: false
                 if (latestIsNewer && downloadUrl.isNotBlank()) {
-                    updateDownloadUrl = downloadUrl
-                    updateDialogMessage = "Nova versão disponível: $latest (instalada: $current). Deseja baixar o APK diretamente? O download ficará nas notificações."
+                    runCatching {
+                        UpdateInstaller.enqueueDownload(context, downloadUrl, latest)
+                    }.onFailure {
+                        updateDialogMessage = "A versão $latest está disponível, mas não foi possível iniciar o download: ${it.localizedMessage}"
+                    }
                 }
             }
             isCheckingUpdates = false
         }
     }
 
-    if (showHelpDialog) {
+        if (showHelpDialog) {
         Dialog(onDismissRequest = { showHelpDialog = false }) {
             GlassCard(
                 modifier = Modifier
@@ -690,29 +688,7 @@ fun MainScreen(
                                 updateDownloadUrl = null
                                 if (!url.isNullOrBlank()) {
                                     runCatching {
-                                        val apkUri = Uri.parse(url)
-                                        val fileName = apkUri.lastPathSegment
-                                            ?.takeIf { it.endsWith(".apk", ignoreCase = true) }
-                                            ?: "HS-Voice-Translator-update.apk"
-                                        val request = DownloadManager.Request(apkUri)
-                                            .setTitle("HS Voice Translator")
-                                            .setDescription("Baixando atualização do aplicativo")
-                                            .setMimeType("application/vnd.android.package-archive")
-                                            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                                            .setAllowedOverMetered(true)
-                                            .setAllowedOverRoaming(false)
-                                        request.setDestinationInExternalPublicDir(
-                                            Environment.DIRECTORY_DOWNLOADS,
-                                            fileName
-                                        )
-                                        val manager = context.getSystemService(DownloadManager::class.java)
-                                            ?: throw IllegalStateException("Gerenciador de downloads indisponível.")
-                                        manager.enqueue(request)
-                                        Toast.makeText(
-                                            context,
-                                            "Download iniciado. Acompanhe as notificações e instale o APK quando terminar.",
-                                            Toast.LENGTH_LONG
-                                        ).show()
+                                        UpdateInstaller.enqueueDownload(context, url, "manual")
                                     }.onFailure {
                                         Toast.makeText(
                                             context,
