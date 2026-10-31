@@ -250,7 +250,7 @@ fun FloatingControllerCapsule(
 
     Column(
         modifier = Modifier
-            .width(if (isMinimized) 190.dp else 224.dp)
+            .width(if (isMinimized) 104.dp else 224.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(Color(0xF5091018))
             .border(1.dp, Color(0xFFFF2948).copy(alpha = 0.82f), RoundedCornerShape(22.dp))
@@ -260,7 +260,7 @@ fun FloatingControllerCapsule(
                     onDrag(dragAmount.x, dragAmount.y)
                 }
             }
-            .padding(14.dp),
+            .padding(if (isMinimized) 8.dp else 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(
@@ -270,15 +270,17 @@ fun FloatingControllerCapsule(
             Image(
                 painter = painterResource(id = R.drawable.ic_hs_logo),
                 contentDescription = "HS Voice Translator",
-                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
+                modifier = Modifier.size(if (isMinimized) 22.dp else 30.dp).clip(RoundedCornerShape(8.dp))
             )
-            Spacer(Modifier.width(9.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("HS Voice Translator", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(if (isRunning) "TRADUÇÃO ATIVA" else "CONTROLE FLUTUANTE", color = if (isRunning) Color(0xFF36E59B) else TextSecondary, fontSize = 8.sp, letterSpacing = 1.sp)
+            if (!isMinimized) {
+                Spacer(Modifier.width(9.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("HS Voice Translator", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(if (isRunning) "TRADUÇÃO ATIVA" else "CONTROLE FLUTUANTE", color = if (isRunning) Color(0xFF36E59B) else TextSecondary, fontSize = 8.sp, letterSpacing = 1.sp)
+                }
             }
             Box(
-                modifier = Modifier.size(25.dp).clip(CircleShape)
+                modifier = Modifier.size(if (isMinimized) 20.dp else 25.dp).clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.08f))
                     .clickable { isMinimized = !isMinimized },
                 contentAlignment = Alignment.Center
@@ -297,7 +299,7 @@ fun FloatingControllerCapsule(
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Close, contentDescription = "Fechar controle", tint = Color.White, modifier = Modifier.size(15.dp))
+                Icon(Icons.Default.Close, contentDescription = "Fechar controle", tint = Color.White, modifier = Modifier.size(if (isMinimized) 12.dp else 15.dp))
             }
         }
 
@@ -375,13 +377,6 @@ fun FloatingControllerCapsule(
                 )
             }
         }
-        } else {
-            Text(
-                text = "Controle minimizado • toque em + para expandir",
-                color = TextSecondary,
-                fontSize = 9.sp,
-                modifier = Modifier.fillMaxWidth().clickable { isMinimized = false }
-            )
         }
     }
 }
