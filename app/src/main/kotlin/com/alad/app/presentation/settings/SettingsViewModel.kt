@@ -35,6 +35,12 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
     private val _showDualSubtitles = MutableStateFlow(true)
     val showDualSubtitles: StateFlow<Boolean> = _showDualSubtitles.asStateFlow()
 
+    private val _sourceLang = MutableStateFlow("auto")
+    val sourceLang: StateFlow<String> = _sourceLang.asStateFlow()
+
+    private val _targetLang = MutableStateFlow("pt-BR")
+    val targetLang: StateFlow<String> = _targetLang.asStateFlow()
+
     init {
         viewModelScope.launch(exceptionHandler) {
             try {
@@ -44,6 +50,8 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
                 _voicePersona.value = repository.voicePersonaFlow.first()
                 _dubbingMode.value = repository.dubbingModeFlow.first()
                 _showDualSubtitles.value = repository.showDualSubtitlesFlow.first()
+                _sourceLang.value = repository.sourceLangFlow.first()
+                _targetLang.value = repository.targetLangFlow.first()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Failed to load preferences", e)
             }
@@ -71,6 +79,16 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
         }
     }
 
+    fun updateSourceLang(lang: String) {
+        _sourceLang.value = lang
+        viewModelScope.launch(exceptionHandler) { repository.updateSourceLang(lang) }
+    }
+
+    fun updateTargetLang(lang: String) {
+        _targetLang.value = lang
+        viewModelScope.launch(exceptionHandler) { repository.updateTargetLang(lang) }
+    }
+
     fun updateShowDualSubtitles(show: Boolean) {
         _showDualSubtitles.value = show
         viewModelScope.launch(exceptionHandler) {
@@ -86,6 +104,8 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
                 repository.updateVoicePersona(_voicePersona.value)
                 repository.updateDubbingMode(_dubbingMode.value)
                 repository.updateShowDualSubtitles(_showDualSubtitles.value)
+                repository.updateSourceLang(_sourceLang.value)
+                repository.updateTargetLang(_targetLang.value)
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Failed to save preferences", e)
             }
