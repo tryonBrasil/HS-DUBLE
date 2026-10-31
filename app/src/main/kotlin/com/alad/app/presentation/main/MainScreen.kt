@@ -404,19 +404,48 @@ fun MainScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                if (isConnected) {
-                    val captureColor = when {
-                        audioCaptureStatus.contains("Falha", ignoreCase = true) || audioCaptureStatus.contains("Erro", ignoreCase = true) -> Color(0xFFFF7373)
-                        audioCaptureStatus.contains("detectado", ignoreCase = true) -> NeonCyan
-                        else -> TextSecondary
+                // Game capture status card, styled after the reference's game-detection screen.
+                val captureColor = when {
+                    audioCaptureStatus.contains("Falha", ignoreCase = true) || audioCaptureStatus.contains("Erro", ignoreCase = true) -> Color(0xFFFF7373)
+                    isConnected -> NeonEmerald
+                    else -> TextSecondary
+                }
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(18.dp),
+                    borderColor = NeonCyan,
+                    borderAlpha = 0.22f
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(11.dp))
+                                .background(NeonCyan.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.HeadsetMic, contentDescription = null, tint = NeonCyan, modifier = Modifier.size(21.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Captura do jogo", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                text = if (isConnected) audioCaptureStatus else "Inicie a dublagem para capturar o áudio do jogo",
+                                color = captureColor,
+                                fontSize = 11.sp,
+                                lineHeight = 16.sp
+                            )
+                            Text(
+                                "Detecção automática do título do jogo: em breve",
+                                color = TextMuted,
+                                fontSize = 10.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier.size(8.dp).clip(CircleShape).background(captureColor)
+                        )
                     }
-                    Text(
-                        text = "Áudio do jogo: $audioCaptureStatus",
-                        color = captureColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
 
                 // 2. Animated Audio Waveform
