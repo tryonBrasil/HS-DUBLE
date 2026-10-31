@@ -10,6 +10,7 @@ import android.view.WindowManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +41,7 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -248,7 +250,7 @@ fun FloatingControllerCapsule(
     Row(
         modifier = Modifier
             .wrapContentSize()
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(18.dp))
             .background(
                 Brush.verticalGradient(
                     listOf(
@@ -266,9 +268,9 @@ fun FloatingControllerCapsule(
                         Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonBlue.copy(alpha = 0.3f)))
                     }
                 ),
-                shape = CircleShape
+                shape = RoundedCornerShape(18.dp)
             )
-            .padding(horizontal = 6.dp, vertical = 4.dp)
+            .padding(horizontal = 9.dp, vertical = 7.dp)
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
@@ -277,6 +279,13 @@ fun FloatingControllerCapsule(
             },
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_hs_logo),
+            contentDescription = "HS Voice Translator",
+            modifier = Modifier.size(27.dp).clip(RoundedCornerShape(7.dp))
+        )
+        Spacer(modifier = Modifier.width(7.dp))
+
         // 1. Play / Stop Button with Pulsing Halo
         Box(
             contentAlignment = Alignment.Center,
