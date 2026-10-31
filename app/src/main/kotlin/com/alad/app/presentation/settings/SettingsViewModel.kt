@@ -26,6 +26,9 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
     private val _originalVolume = MutableStateFlow(0.30f)
     val originalVolume: StateFlow<Float> = _originalVolume.asStateFlow()
 
+    private val _isOriginalMuted = MutableStateFlow(true)
+    val isOriginalMuted: StateFlow<Boolean> = _isOriginalMuted.asStateFlow()
+
     private val _voicePersona = MutableStateFlow("Puck")
     val voicePersona: StateFlow<String> = _voicePersona.asStateFlow()
 
@@ -35,19 +38,43 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
     private val _showDualSubtitles = MutableStateFlow(true)
     val showDualSubtitles: StateFlow<Boolean> = _showDualSubtitles.asStateFlow()
 
+    private val _sourceLang = MutableStateFlow("auto")
+    val sourceLang: StateFlow<String> = _sourceLang.asStateFlow()
+
+    private val _targetLang = MutableStateFlow("pt-BR")
+    val targetLang: StateFlow<String> = _targetLang.asStateFlow()
+
     init {
         viewModelScope.launch(exceptionHandler) {
             try {
                 _userApiKey.value = repository.apiKeyFlow.first()
                 _volumeRatio.value = repository.volumeRatioFlow.first()
                 _originalVolume.value = repository.originalVolumeFlow.first()
+                _isOriginalMuted.value = repository.isOriginalMutedFlow.first()
                 _voicePersona.value = repository.voicePersonaFlow.first()
                 _dubbingMode.value = repository.dubbingModeFlow.first()
                 _showDualSubtitles.value = repository.showDualSubtitlesFlow.first()
+                _sourceLang.value = repository.sourceLangFlow.first()
+                _targetLang.value = repository.targetLangFlow.first()
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Failed to load preferences", e)
             }
         }
+    }
+
+    fun updateVolumeRatio(value: Float) {
+        _volumeRatio.value = value
+        viewModelScope.launch(exceptionHandler) { repository.updateVolumeRatio(value) }
+    }
+
+    fun updateOriginalVolume(value: Float) {
+        _originalVolume.value = value
+        viewModelScope.launch(exceptionHandler) { repository.updateOriginalVolume(value) }
+    }
+
+    fun updateOriginalMuted(muted: Boolean) {
+        _isOriginalMuted.value = muted
+        viewModelScope.launch(exceptionHandler) { repository.updateOriginalMuted(muted) }
     }
 
     fun updateApiKey(key: String) {
@@ -71,6 +98,16 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
         }
     }
 
+    fun updateSourceLang(lang: String) {
+        _sourceLang.value = lang
+        viewModelScope.launch(exceptionHandler) { repository.updateSourceLang(lang) }
+    }
+
+    fun updateTargetLang(lang: String) {
+        _targetLang.value = lang
+        viewModelScope.launch(exceptionHandler) { repository.updateTargetLang(lang) }
+    }
+
     fun updateShowDualSubtitles(show: Boolean) {
         _showDualSubtitles.value = show
         viewModelScope.launch(exceptionHandler) {
@@ -83,9 +120,14 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
         viewModelScope.launch(exceptionHandler) {
             try {
                 repository.updateApiKey(_userApiKey.value)
+                repository.updateVolumeRatio(_volumeRatio.value)
+                repository.updateOriginalVolume(_originalVolume.value)
+                repository.updateOriginalMuted(_isOriginalMuted.value)
                 repository.updateVoicePersona(_voicePersona.value)
                 repository.updateDubbingMode(_dubbingMode.value)
                 repository.updateShowDualSubtitles(_showDualSubtitles.value)
+                repository.updateSourceLang(_sourceLang.value)
+                repository.updateTargetLang(_targetLang.value)
             } catch (e: Exception) {
                 Log.e("SettingsViewModel", "Failed to save preferences", e)
             }

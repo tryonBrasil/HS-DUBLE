@@ -23,6 +23,8 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Icon
@@ -39,6 +41,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalContext
+import com.alad.app.MainActivity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -232,210 +236,125 @@ fun FloatingControllerCapsule(
 ) {
     val isRunning by DubbingSessionRepository.isDubbingRunning.collectAsState()
     val isSubtitleVisible by DubbingSessionRepository.isSubtitleOverlayVisible.collectAsState()
-    val amplitude by DubbingSessionRepository.audioAmplitude.collectAsState()
-
+    val isDubbingMuted by DubbingSessionRepository.isDubbingMuted.collectAsState()
     val haptic = LocalHapticFeedback.current
-
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = if (isRunning) 1.25f else 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(750, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseScale"
+    val context = LocalContext.current
+    val pulse = rememberInfiniteTransition(label = "hs_overlay_pulse")
+    val pulseAlpha by pulse.animateFloat(
+        initialValue = 0.18f,
+        targetValue = if (isRunning) 0.42f else 0.18f,
+        animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse),
+        label = "hs_overlay_glow"
     )
 
-    Row(
+    Column(
         modifier = Modifier
-            .wrapContentSize()
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color(0xF20D1017),
-                        Color(0xF807090E)
-                    )
-                )
-            )
-            .border(
-                BorderStroke(
-                    1.dp,
-                    if (isRunning) {
-                        Brush.linearGradient(listOf(NeonRose, NeonCoral))
-                    } else {
-                        Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonCyan.copy(alpha = 0.3f)))
-                    }
-                ),
-                shape = RoundedCornerShape(18.dp)
-            )
-            .padding(horizontal = 9.dp, vertical = 7.dp)
+            .width(224.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Color(0xF5091018))
+            .border(1.dp, Color(0xFFFF2948).copy(alpha = 0.82f), RoundedCornerShape(22.dp))
             .pointerInput(Unit) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
                     onDrag(dragAmount.x, dragAmount.y)
                 }
-            },
-        verticalAlignment = Alignment.CenterVertically
+            }
+            .padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.ic_hs_logo),
-            contentDescription = "HS Voice Translator",
-            modifier = Modifier.size(27.dp).clip(RoundedCornerShape(7.dp))
-        )
-        Spacer(modifier = Modifier.width(7.dp))
-
-        // 1. Play / Stop Button with Pulsing Halo
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(34.dp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (isRunning) {
-                Box(
-                    modifier = Modifier
-                        .size((32 * pulseScale).dp)
-                        .clip(CircleShape)
-                        .background(NeonCoral.copy(alpha = 0.25f))
-                )
+            Image(
+                painter = painterResource(id = R.drawable.ic_hs_logo),
+                contentDescription = "HS Voice Translator",
+                modifier = Modifier.size(30.dp).clip(RoundedCornerShape(8.dp))
+            )
+            Spacer(Modifier.width(9.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("HS Voice Translator", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(if (isRunning) "TRADUÇÃO ATIVA" else "CONTROLE FLUTUANTE", color = if (isRunning) Color(0xFF36E59B) else TextSecondary, fontSize = 8.sp, letterSpacing = 1.sp)
             }
-
             Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            if (isRunning) listOf(NeonRose, NeonCoral) else listOf(NeonCyan, NeonCyan)
-                        )
-                    )
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggle(isRunning)
-                    }
+                modifier = Modifier.size(25.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f))
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center
             ) {
-                if (isRunning) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(Color.White, shape = RoundedCornerShape(2.dp))
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = stringResource(R.string.overlay_start_dubbing),
-                        tint = Color.White,
-                        modifier = Modifier.size(17.dp)
-                    )
-                }
+                Icon(Icons.Default.Close, contentDescription = "Fechar controle", tint = Color.White, modifier = Modifier.size(15.dp))
             }
         }
 
-        // 2. If Running: Live Equalizer + Subtitle Toggle
-        if (isRunning) {
-            Spacer(modifier = Modifier.width(5.dp))
-
-            // 3-Bar Dynamic Equalizer
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.5.dp),
-                modifier = Modifier.padding(horizontal = 2.dp)
-            ) {
-                val ampFactor = (amplitude * 1.5f).coerceIn(0.2f, 1f)
-                Box(
-                    modifier = Modifier
-                        .width(2.5.dp)
-                        .height((6 + 10 * ampFactor * pulseScale).dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(NeonCyan)
-                )
-                Box(
-                    modifier = Modifier
-                        .width(2.5.dp)
-                        .height((8 + 12 * ampFactor * (2f - pulseScale)).dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(NeonRose)
-                )
-                Box(
-                    modifier = Modifier
-                        .width(2.5.dp)
-                        .height((5 + 8 * ampFactor * pulseScale).dp)
-                        .clip(RoundedCornerShape(1.dp))
-                        .background(NeonCyan)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Quick Mute Toggle Button
-            val isDubbingMuted by DubbingSessionRepository.isDubbingMuted.collectAsState()
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isDubbingMuted) NeonCoral.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f)
-                    )
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        DubbingSessionRepository.toggleDubbingMute()
-                    }
-            ) {
-                Icon(
-                    imageVector = if (isDubbingMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                    contentDescription = stringResource(R.string.overlay_toggle_mute),
-                    tint = if (isDubbingMuted) NeonCoral else Color.White.copy(alpha = 0.85f),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(4.dp))
-
-            // Subtitle Quick Toggle Button
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(26.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isSubtitleVisible) NeonCyan.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.08f)
-                    )
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        DubbingSessionRepository.toggleSubtitleOverlayVisibility()
-                    }
-            ) {
-                Icon(
-                    imageVector = if (isSubtitleVisible) Icons.Default.Subtitles else Icons.Default.VisibilityOff,
-                    contentDescription = stringResource(R.string.overlay_toggle_subtitles),
-                    tint = if (isSubtitleVisible) NeonCyan else Color.White.copy(alpha = 0.5f),
-                    modifier = Modifier.size(14.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(4.dp))
-
-        // 3. Compact Close 'X' Button
+        Spacer(Modifier.height(16.dp))
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier
-                .size(24.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
+            modifier = Modifier.size(76.dp).clip(CircleShape)
+                .background(Color(0xFFFF1738).copy(alpha = pulseAlpha))
+                .border(1.dp, Color(0xFFFF526B), CircleShape)
                 .clickable {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClose()
-                }
+                    onToggle(isRunning)
+                },
+            contentAlignment = Alignment.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = stringResource(R.string.overlay_close_widget),
-                tint = Color.White.copy(alpha = 0.75f),
-                modifier = Modifier.size(13.dp)
-            )
+            Box(
+                modifier = Modifier.size(58.dp).clip(CircleShape)
+                    .background(Brush.radialGradient(listOf(Color(0xFFFF526B), Color(0xFFE60026), Color(0xFF8F0018)))),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isRunning) Icons.Default.Stop else Icons.Default.PlayArrow,
+                    contentDescription = if (isRunning) "Parar dublagem" else "Iniciar dublagem",
+                    tint = Color.White,
+                    modifier = Modifier.size(30.dp)
+                )
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            Column(
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF151F2B)).padding(vertical = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null, tint = if (isDubbingMuted) TextSecondary else Color(0xFFFF526B), modifier = Modifier.size(19.dp))
+                Spacer(Modifier.height(3.dp))
+                Text("Dublagem", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (isDubbingMuted) "Silenciada" else if (isRunning) "Ativa" else "Pronta", color = TextSecondary, fontSize = 8.sp)
+            }
+            Column(
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFF151F2B))
+                    .clickable {
+                        context.startActivity(
+                            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        )
+                    }
+                    .padding(vertical = 9.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White, modifier = Modifier.size(19.dp))
+                Spacer(Modifier.height(3.dp))
+                Text("Configurações", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text("Abrir app", color = TextSecondary, fontSize = 8.sp)
+            }
+        }
+        if (isRunning) {
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("Legendas", color = TextSecondary, fontSize = 10.sp)
+                androidx.compose.material3.Switch(
+                    checked = isSubtitleVisible,
+                    onCheckedChange = { DubbingSessionRepository.setSubtitleOverlayVisibility(it) }
+                )
+            }
         }
     }
 }

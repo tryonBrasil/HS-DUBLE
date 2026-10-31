@@ -71,7 +71,7 @@ fun AmbientBackground(
 fun GlassCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(26.dp),
-    backgroundColor: Color = LiquidGlassSurface,
+    backgroundColor: Color = Color(0xFF0D131D),
     borderColor: Color = Color.White,
     borderAlpha: Float = 0.28f,
     onClick: (() -> Unit)? = null,
@@ -80,8 +80,8 @@ fun GlassCard(
     // Multi-stop liquid glass surface reflection
     val glassBrush = Brush.verticalGradient(
         colors = listOf(
-            backgroundColor.copy(alpha = 0.85f),
-            backgroundColor.copy(alpha = 0.50f)
+            backgroundColor,
+            backgroundColor.copy(alpha = 0.96f)
         )
     )
 
@@ -89,8 +89,8 @@ fun GlassCard(
     val borderBrush = Brush.linearGradient(
         colors = listOf(
             borderColor.copy(alpha = borderAlpha),
-            NeonCyan.copy(alpha = borderAlpha * 0.45f),
-            borderColor.copy(alpha = borderAlpha * 0.12f)
+            borderColor.copy(alpha = borderAlpha * 0.55f),
+            borderColor.copy(alpha = borderAlpha * 0.18f)
         ),
         start = Offset(0f, 0f),
         end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
@@ -107,7 +107,7 @@ fun GlassCard(
             .clip(shape)
             .then(clickableModifier)
             .background(glassBrush)
-            .border(BorderStroke(1.2.dp, borderBrush), shape = shape)
+            .border(BorderStroke(1.dp, borderBrush), shape = shape)
     ) {
         // Specular inner top sheen bar (giving the physical look of liquid glass)
         Box(
@@ -257,7 +257,7 @@ fun StatusBadge(
     GlassCard(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        backgroundColor = if (isConnected) Color(0xB31A0D14) else Color(0x990D1017),
+        backgroundColor = if (isConnected) Color(0xFF101820) else Color(0xFF0D131D),
         borderColor = if (isConnected) NeonCyan else Color.White,
         borderAlpha = if (isConnected) 0.40f else 0.12f
     ) {

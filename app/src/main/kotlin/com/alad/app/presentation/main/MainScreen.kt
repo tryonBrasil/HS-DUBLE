@@ -107,7 +107,6 @@ fun MainScreen(
     val sourceLang by viewModel.sourceLang.collectAsState()
     val targetLang by viewModel.targetLang.collectAsState()
     val targetDialect by viewModel.targetDialect.collectAsState()
-    val screenSubtitleMode by viewModel.screenSubtitleMode.collectAsState()
 
     val dubbingVol by viewModel.dubbingVolume.collectAsState()
     val isDubbingMuted by viewModel.isDubbingMuted.collectAsState()
@@ -355,11 +354,38 @@ fun MainScreen(
             ) {
 
                 // 1. Status Indicator — use the real API state, not just the running service flag.
-                StatusBadge(
-                    isConnected = apiReady,
-                    statusText = apiStatusLabel,
-                    modifier = Modifier.fillMaxWidth()
+                HomeTranslationHero(
+                    isTranslating = isConnected,
+                    sourceLabel = supportedLanguages.find { it.first == sourceLang }?.second ?: "Detecção automática",
+                    targetLabel = supportedLanguages.find { it.first == targetLang }?.second ?: if (targetLang.startsWith("pt")) "🇧🇷 Português (BR)" else targetLang
                 )
+
+                StartStopDubbingButton(
+                    isConnected = isConnected,
+                    onClick = {
+                        if (isConnected) onDisconnectClicked() else onConnectClicked()
+                    }
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HomeModeTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Dublagem",
+                        subtitle = "Áudio traduzido",
+                        selected = selectedMode == com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY,
+                        onClick = { viewModel.updateDubbingMode(com.alad.app.data.repository.UserPreferencesRepository.MODE_AUDIO_ONLY) }
+                    )
+                    HomeModeTile(
+                        modifier = Modifier.weight(1f),
+                        title = "Legenda + áudio",
+                        subtitle = "Texto e voz",
+                        selected = selectedMode == com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID,
+                        onClick = { viewModel.updateDubbingMode(com.alad.app.data.repository.UserPreferencesRepository.MODE_HYBRID) }
+                    )
+                }
 
                 // Game capture status card, styled after the reference's game-detection screen.
                 val captureColor = when {
@@ -495,428 +521,7 @@ fun MainScreen(
                     }
                 }
 
-                // 4. Source language selector (the language spoken in the game).
-                var sourceLangExpanded by remember { mutableStateOf(false) }
-                var sourceLangSearchQuery by remember { mutableStateOf("") }
-                val sourceLanguageOptions = remember { listOf("auto" to "🌐 Detecção automática") + supportedLanguages }
-                val displaySourceLang = sourceLanguageOptions.find { it.first == sourceLang }?.second ?: "🌐 Detecção automática"
-
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    borderColor = NeonCyan,
-                    borderAlpha = 0.22f
-                ) {
-                    Column(modifier = Modifier.padding(18.dp)) {
-                        Text(
-                            text = "Idioma falado no jogo",
-                            color = TextSecondary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
-                        ExposedDropdownMenuBox(
-                            expanded = sourceLangExpanded,
-                            onExpandedChange = { sourceLangExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = if (sourceLangExpanded) sourceLangSearchQuery else displaySourceLang,
-                                onValueChange = { sourceLangSearchQuery = it },
-                                readOnly = !sourceLangExpanded,
-                                label = { Text("Idioma de origem", color = TextSecondary) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sourceLangExpanded) },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color(0x30FFFFFF),
-                                    unfocusedContainerColor = Color(0x15FFFFFF),
-                                    focusedBorderColor = NeonCyan,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
-                                ),
-                                modifier = Modifier.menuAnchor().fillMaxWidth()
-                            )
-                            ExposedDropdownMenu(
-                                expanded = sourceLangExpanded,
-                                onDismissRequest = {
-                                    sourceLangExpanded = false
-                                    sourceLangSearchQuery = ""
-                                },
-                                modifier = Modifier
-                                    .background(DeepSpaceElevated)
-                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                            ) {
-                                sourceLanguageOptions.filter { it.second.contains(sourceLangSearchQuery, ignoreCase = true) }
-                                    .forEach { (code, name) ->
-                                        DropdownMenuItem(
-                                            text = { Text(name, color = if (code == sourceLang) NeonCyan else Color.White) },
-                                            onClick = {
-                                                viewModel.updateSourceLang(code)
-                                                sourceLangExpanded = false
-                                                sourceLangSearchQuery = ""
-                                            }
-                                        )
-                                    }
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Escolha Coreano para falas em coreano ou Detecção automática para deixar o Gemini identificar o idioma.",
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp
-                        )
-                    }
-                }
-
-                // Screen-subtitle OCR mode translates the actual text visible in the game instead of guessing from audio.
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    borderColor = NeonCyan,
-                    borderAlpha = 0.28f
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.screen_subtitle_mode),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = stringResource(R.string.screen_subtitle_mode_desc),
-                                color = TextSecondary,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Switch(
-                            checked = screenSubtitleMode,
-                            onCheckedChange = { viewModel.updateScreenSubtitleMode(it) },
-                            enabled = !isConnected
-                        )
-                    }
-                }
-
-                // 5. Target Language & Dialect Selection Bento Card
-                var langExpanded by remember { mutableStateOf(false) }
-                var dialectExpanded by remember { mutableStateOf(false) }
-                var searchQuery by remember { mutableStateOf("") }
-                val displayLang = supportedLanguages.find { it.first == targetLang }?.second ?: targetLang
-
-                val availableDialects = supportedDialects[targetLang.split("-")[0]] ?: emptyList()
-                val displayDialect = availableDialects.find { it.code.equals(targetDialect, ignoreCase = true) }?.displayName
-                    ?: stringResource(R.string.standard_dialect)
-
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = stringResource(R.string.target_dubbing_language),
-                                color = TextSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(NeonCyan.copy(alpha = 0.12f))
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = targetLang.uppercase(),
-                                    color = NeonCyan,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Language Dropdown
-                        ExposedDropdownMenuBox(
-                            expanded = langExpanded,
-                            onExpandedChange = { langExpanded = it }
-                        ) {
-                            OutlinedTextField(
-                                value = if (langExpanded) searchQuery else displayLang,
-                                onValueChange = { searchQuery = it },
-                                readOnly = !langExpanded,
-                                label = { Text(stringResource(R.string.select_language), color = TextSecondary) },
-                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = langExpanded) },
-                                shape = RoundedCornerShape(16.dp),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    focusedContainerColor = Color(0x30FFFFFF),
-                                    unfocusedContainerColor = Color(0x15FFFFFF),
-                                    focusedBorderColor = NeonCyan,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White
-                                ),
-                                modifier = Modifier
-                                    .menuAnchor()
-                                    .fillMaxWidth()
-                            )
-
-                            ExposedDropdownMenu(
-                                expanded = langExpanded,
-                                onDismissRequest = {
-                                    langExpanded = false
-                                    searchQuery = ""
-                                },
-                                modifier = Modifier
-                                    .background(DeepSpaceElevated)
-                                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                            ) {
-                                val filtered = supportedLanguages.filter {
-                                    it.second.contains(searchQuery, ignoreCase = true)
-                                }
-                                filtered.forEach { (code, name) ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                name,
-                                                color = if (code == targetLang) NeonCyan else Color.White,
-                                                fontWeight = if (code == targetLang) FontWeight.Bold else FontWeight.Normal
-                                            )
-                                        },
-                                        onClick = {
-                                            viewModel.updateTargetLang(code)
-                                            langExpanded = false
-                                            searchQuery = ""
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // Dialect / Accent Selector (if dialects available for this language)
-                        if (availableDialects.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            Text(
-                                text = stringResource(R.string.target_dialect),
-                                color = TextSecondary,
-                                fontSize = 12.5.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Spacer(modifier = Modifier.height(6.dp))
-
-                            ExposedDropdownMenuBox(
-                                expanded = dialectExpanded,
-                                onExpandedChange = { dialectExpanded = it }
-                            ) {
-                                OutlinedTextField(
-                                    value = displayDialect,
-                                    onValueChange = {},
-                                    readOnly = true,
-                                    label = { Text(stringResource(R.string.select_dialect), color = TextSecondary) },
-                                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = dialectExpanded) },
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = OutlinedTextFieldDefaults.colors(
-                                        focusedContainerColor = Color(0x25FFFFFF),
-                                        unfocusedContainerColor = Color(0x12FFFFFF),
-                                        focusedBorderColor = NeonRose,
-                                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                                        focusedTextColor = Color.White,
-                                        unfocusedTextColor = Color.White
-                                    ),
-                                    modifier = Modifier
-                                        .menuAnchor()
-                                        .fillMaxWidth()
-                                )
-
-                                ExposedDropdownMenu(
-                                    expanded = dialectExpanded,
-                                    onDismissRequest = { dialectExpanded = false },
-                                    modifier = Modifier
-                                        .background(DeepSpaceElevated)
-                                        .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
-                                ) {
-                                    availableDialects.forEach { dialect ->
-                                        DropdownMenuItem(
-                                            text = {
-                                                Text(
-                                                    dialect.displayName,
-                                                    color = if (dialect.code == targetDialect) NeonRose else Color.White,
-                                                    fontWeight = if (dialect.code == targetDialect) FontWeight.Bold else FontWeight.Normal
-                                                )
-                                            },
-                                            onClick = {
-                                                viewModel.updateTargetDialect(dialect.code)
-                                                dialectExpanded = false
-                                            }
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 5. Dual Audio Mixer Bento Card (Issue #6)
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    borderColor = NeonCyan,
-                    borderAlpha = 0.20f
-                ) {
-                    Column(
-                        modifier = Modifier.padding(18.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Tune,
-                                contentDescription = null,
-                                tint = NeonCyan,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Text(
-                                text = stringResource(R.string.audio_mixer),
-                                color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // A. Dubbed AI Voice Volume Slider + Mute
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = stringResource(R.string.dubbed_voice_volume),
-                                color = if (isDubbingMuted) TextMuted else TextSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = if (isDubbingMuted) "MUTED" else "${(dubbingVol * 100).toInt()}%",
-                                    color = if (isDubbingMuted) NeonCoral else NeonCyan,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isDubbingMuted) NeonCoral.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f))
-                                        .clickable {
-                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                            viewModel.toggleDubbingMute()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isDubbingMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = stringResource(R.string.mute_dubbing),
-                                        tint = if (isDubbingMuted) NeonCoral else Color.White,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Slider(
-                            value = dubbingVol,
-                            onValueChange = { viewModel.setDubbingVolume(it) },
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = NeonCyan,
-                                activeTrackColor = NeonCyan,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.15f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        // B. Original Media Audio Volume Slider + Mute
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(
-                                text = stringResource(R.string.original_media_volume),
-                                color = if (isOriginalMuted) TextMuted else TextSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(
-                                    text = if (isOriginalMuted) "MUTED" else "${(originalVol * 100).toInt()}%",
-                                    color = if (isOriginalMuted) NeonCoral else NeonRose,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .background(if (isOriginalMuted) NeonCoral.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f))
-                                        .clickable {
-                                            haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.TextHandleMove)
-                                            viewModel.toggleOriginalMute()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = if (isOriginalMuted) Icons.AutoMirrored.Filled.VolumeOff else Icons.AutoMirrored.Filled.VolumeUp,
-                                        contentDescription = stringResource(R.string.mute_original),
-                                        tint = if (isOriginalMuted) NeonCoral else Color.White,
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        Slider(
-                            value = originalVol,
-                            onValueChange = { viewModel.setOriginalVolumeRatio(it) },
-                            valueRange = 0f..1f,
-                            colors = SliderDefaults.colors(
-                                thumbColor = NeonRose,
-                                activeTrackColor = NeonRose,
-                                inactiveTrackColor = Color.White.copy(alpha = 0.15f)
-                            ),
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                }
-
+                // Language, voice and translation-mode preferences are centralized in Settings.
                 // 6. Floating Overlay Widget Switch Card
                 val isWidgetActive by com.alad.app.core.service.OverlayWidgetService.isWidgetActive.collectAsState()
                 val toggleFloatingWidget: () -> Unit = {
@@ -971,18 +576,6 @@ fun MainScreen(
                         )
                     }
                 }
-
-                // 7. Start/Stop Dubbing Action Button
-                StartStopDubbingButton(
-                    isConnected = isConnected,
-                    onClick = {
-                        if (isConnected) {
-                            onDisconnectClicked()
-                        } else {
-                            onConnectClicked()
-                        }
-                    }
-                )
 
                 OutlinedButton(
                     onClick = {
@@ -1262,6 +855,86 @@ fun AnimatedWaveform(
 }
 
 @Composable
+private fun HomeTranslationHero(
+    isTranslating: Boolean,
+    sourceLabel: String,
+    targetLabel: String
+) {
+    GlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        backgroundColor = Color(0xFF0B121B),
+        borderColor = Color(0xFFFF1738),
+        borderAlpha = 0.35f
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(9.dp).clip(CircleShape).background(if (isTranslating) Color(0xFF20D58A) else Color(0xFF778394)))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (isTranslating) "Traduzindo" else "Pronto para traduzir",
+                    color = if (isTranslating) Color(0xFF36E59B) else Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text(if (sourceLabel.contains("Coreano", true)) "🇰🇷" else "🌐", fontSize = 25.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(sourceLabel, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("ORIGEM", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                }
+                Icon(Icons.Default.ArrowForward, contentDescription = null, tint = Color(0xFFFF2948), modifier = Modifier.size(24.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                    Text(if (targetLabel.contains("Portugu", true)) "🇧🇷" else "🌐", fontSize = 25.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(targetLabel, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("DESTINO", color = TextMuted, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeModeTile(
+    modifier: Modifier,
+    title: String,
+    subtitle: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(15.dp))
+            .background(if (selected) Color(0xFF45101B) else Color(0xFF101822))
+            .border(1.dp, if (selected) Color(0xFFFF1738) else Color(0xFF263342), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 13.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            if (title == "Dublagem") Icons.AutoMirrored.Filled.VolumeUp else Icons.Default.Subtitles,
+            contentDescription = null,
+            tint = if (selected) Color(0xFFFF526B) else TextSecondary,
+            modifier = Modifier.size(21.dp)
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+        Text(subtitle, color = TextSecondary, fontSize = 10.sp, maxLines = 1)
+    }
+}
+
+@Composable
 fun StartStopDubbingButton(
     isConnected: Boolean,
     onClick: () -> Unit
@@ -1269,90 +942,49 @@ fun StartStopDubbingButton(
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val haptic = LocalHapticFeedback.current
-
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.97f else 1.0f,
+        targetValue = if (isPressed) 0.94f else 1f,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "scale"
+        label = "power_button_scale"
     )
 
-    val gradientColors = if (isConnected) {
-        listOf(NeonRose, NeonCyan, NeonCoral)
-    } else {
-        listOf(NeonCyan, NeonCyan, NeonCoral)
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(64.dp)
-            .scale(scale)
-            .clip(RoundedCornerShape(32.dp))
-            .background(
-                Brush.horizontalGradient(gradientColors)
-            )
-            .border(
-                BorderStroke(
-                    1.2.dp,
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.70f),
-                            Color.White.copy(alpha = 0.15f)
-                        )
-                    )
-                ),
-                shape = RoundedCornerShape(32.dp)
-            )
-            .clickable(
-                interactionSource = interactionSource,
-                indication = null,
-                onClick = {
-                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                    onClick()
-                }
-            ),
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Specular top highlight line inside pill
         Box(
             modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .height(1.dp)
-                .align(Alignment.TopCenter)
-                .padding(top = 1.dp)
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Transparent,
-                            Color.White.copy(alpha = 0.6f),
-                            Color.Transparent
-                        )
-                    )
-                )
-        )
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
+                .size(88.dp)
+                .scale(scale)
+                .clip(CircleShape)
+                .background(Brush.radialGradient(listOf(Color(0xFFFF526B), Color(0xFFE60026), Color(0xFF8F0018))))
+                .border(2.dp, Color(0xFFFFA0AE).copy(alpha = 0.65f), CircleShape)
+                .clickable(interactionSource = interactionSource, indication = null) {
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    onClick()
+                },
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = if (isConnected) Icons.Default.Stop else Icons.Default.PlayArrow,
-                contentDescription = null,
+                contentDescription = if (isConnected) "Parar tradução" else "Iniciar tradução",
                 tint = Color.White,
-                modifier = Modifier.size(26.dp)
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Text(
-                text = if (isConnected) stringResource(R.string.btn_stop) else stringResource(R.string.btn_start),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color.White,
-                    letterSpacing = 0.5.sp,
-                    fontSize = 17.5.sp
-                )
+                modifier = Modifier.size(38.dp)
             )
         }
+        Spacer(Modifier.height(9.dp))
+        Text(
+            if (isConnected) "Toque para parar" else "Toque para iniciar / parar",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            "TRADUÇÃO EM TEMPO REAL",
+            color = Color(0xFFFF526B),
+            fontSize = 9.sp,
+            letterSpacing = 1.6.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
