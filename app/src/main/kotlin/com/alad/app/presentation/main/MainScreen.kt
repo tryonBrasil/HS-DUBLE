@@ -919,7 +919,7 @@ fun MainScreen(
 
                 // 6. Floating Overlay Widget Switch Card
                 val isWidgetActive by com.alad.app.core.service.OverlayWidgetService.isWidgetActive.collectAsState()
-                val toggleFloatingWidget = {
+                val toggleFloatingWidget: () -> Unit = {
                     if (!Settings.canDrawOverlays(context)) {
                         val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
                         context.startActivity(intent)
