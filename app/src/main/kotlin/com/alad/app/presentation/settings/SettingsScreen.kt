@@ -36,7 +36,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavigateToAbout: () -> Unit = {}) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val apiKey by viewModel.userApiKey.collectAsState()
@@ -78,6 +78,28 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}) {
                 }
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            bottomBar = {
+                NavigationBar(containerColor = DeepSpaceElevated.copy(alpha = 0.98f)) {
+                    NavigationBarItem(
+                        selected = false, onClick = onBack,
+                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
+                        label = { Text("Início", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
+                    )
+                    NavigationBarItem(
+                        selected = true, onClick = { },
+                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                        label = { Text("Configurações", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
+                    )
+                    NavigationBarItem(
+                        selected = false, onClick = onNavigateToAbout,
+                        icon = { Icon(Icons.Default.Info, contentDescription = null) },
+                        label = { Text("Sobre", fontSize = 10.sp) },
+                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
+                    )
+                }
+            },
             containerColor = Color.Transparent
         ) { paddingValues ->
             Column(
