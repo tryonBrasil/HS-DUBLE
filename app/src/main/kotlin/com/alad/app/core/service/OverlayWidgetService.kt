@@ -239,6 +239,7 @@ fun FloatingControllerCapsule(
     val isDubbingMuted by DubbingSessionRepository.isDubbingMuted.collectAsState()
     val haptic = LocalHapticFeedback.current
     val context = LocalContext.current
+    var isMinimized by remember { mutableStateOf(false) }
     val pulse = rememberInfiniteTransition(label = "hs_overlay_pulse")
     val pulseAlpha by pulse.animateFloat(
         initialValue = 0.18f,
@@ -249,7 +250,7 @@ fun FloatingControllerCapsule(
 
     Column(
         modifier = Modifier
-            .width(224.dp)
+            .width(if (isMinimized) 190.dp else 224.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(Color(0xF5091018))
             .border(1.dp, Color(0xFFFF2948).copy(alpha = 0.82f), RoundedCornerShape(22.dp))
@@ -279,6 +280,20 @@ fun FloatingControllerCapsule(
             Box(
                 modifier = Modifier.size(25.dp).clip(CircleShape)
                     .background(Color.White.copy(alpha = 0.08f))
+                    .clickable { isMinimized = !isMinimized },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (isMinimized) "+" else "−",
+                    color = Color.White,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Spacer(Modifier.width(5.dp))
+            Box(
+                modifier = Modifier.size(25.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.08f))
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center
             ) {
@@ -286,6 +301,7 @@ fun FloatingControllerCapsule(
             }
         }
 
+        if (!isMinimized) {
         Spacer(Modifier.height(16.dp))
         Box(
             modifier = Modifier.size(76.dp).clip(CircleShape)
@@ -355,6 +371,14 @@ fun FloatingControllerCapsule(
                     onCheckedChange = { DubbingSessionRepository.setSubtitleOverlayVisibility(it) }
                 )
             }
+        }
+        } else {
+            Text(
+                text = "Controle minimizado • toque em + para expandir",
+                color = TextSecondary,
+                fontSize = 9.sp,
+                modifier = Modifier.fillMaxWidth().clickable { isMinimized = false }
+            )
         }
     }
 }
