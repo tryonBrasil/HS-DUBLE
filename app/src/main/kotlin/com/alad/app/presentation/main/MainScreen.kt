@@ -855,7 +855,6 @@ fun AnimatedWaveform(
 }
 
 @Composable
-@Composable
 private fun HomeTranslationHero(
     isTranslating: Boolean,
     sourceLabel: String,
@@ -935,6 +934,7 @@ private fun HomeModeTile(
     }
 }
 
+@Composable
 fun StartStopDubbingButton(
     isConnected: Boolean,
     onClick: () -> Unit
