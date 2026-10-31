@@ -32,6 +32,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import java.util.Locale
