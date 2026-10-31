@@ -1,3 +1,4 @@
+// Release v1.3.30
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
