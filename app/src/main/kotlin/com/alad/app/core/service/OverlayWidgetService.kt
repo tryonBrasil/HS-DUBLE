@@ -265,7 +265,7 @@ fun FloatingControllerCapsule(
                     if (isRunning) {
                         Brush.linearGradient(listOf(NeonRose, NeonCoral))
                     } else {
-                        Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonBlue.copy(alpha = 0.3f)))
+                        Brush.linearGradient(listOf(NeonCyan.copy(alpha = 0.6f), NeonCyan.copy(alpha = 0.3f)))
                     }
                 ),
                 shape = RoundedCornerShape(18.dp)
@@ -307,7 +307,7 @@ fun FloatingControllerCapsule(
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
-                            if (isRunning) listOf(NeonRose, NeonCoral) else listOf(NeonCyan, NeonBlue)
+                            if (isRunning) listOf(NeonRose, NeonCoral) else listOf(NeonCyan, NeonCyan)
                         )
                     )
                     .clickable {
@@ -355,7 +355,7 @@ fun FloatingControllerCapsule(
                         .width(2.5.dp)
                         .height((8 + 12 * ampFactor * (2f - pulseScale)).dp)
                         .clip(RoundedCornerShape(1.dp))
-                        .background(NeonPurple)
+                        .background(NeonRose)
                 )
                 Box(
                     modifier = Modifier
@@ -480,7 +480,7 @@ fun FloatingCinemaSubtitles(
                     Brush.linearGradient(
                         listOf(
                             NeonCyan.copy(alpha = 0.45f),
-                            NeonPurple.copy(alpha = 0.25f)
+                            NeonRose.copy(alpha = 0.25f)
                         )
                     )
                 ),
