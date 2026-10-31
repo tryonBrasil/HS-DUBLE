@@ -78,28 +78,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                 }
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-            bottomBar = {
-                NavigationBar(containerColor = DeepSpaceElevated.copy(alpha = 0.98f)) {
-                    NavigationBarItem(
-                        selected = false, onClick = onBack,
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                        label = { Text("Início", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                    NavigationBarItem(
-                        selected = true, onClick = { },
-                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                        label = { Text("Configurações", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                    NavigationBarItem(
-                        selected = false, onClick = onNavigateToAbout,
-                        icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                        label = { Text("Sobre", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                }
-            },
+            bottomBar = { HsBottomNavigationBar(selected = "settings", onHome = onBack, onSettings = {}, onAbout = onNavigateToAbout) },
             containerColor = Color.Transparent
         ) { paddingValues ->
             Column(
@@ -126,9 +105,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                             modifier = Modifier.size(58.dp).clip(RoundedCornerShape(15.dp))
                         )
                         Spacer(modifier = Modifier.width(14.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "HS VOICE TRANSLATOR",
+                                maxLines = 1,
+                                softWrap = false,
                                 color = Color.White,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 16.sp,

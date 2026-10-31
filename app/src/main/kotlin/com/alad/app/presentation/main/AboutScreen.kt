@@ -47,28 +47,7 @@ fun AboutScreen(onBack: () -> Unit, onNavigateToSettings: () -> Unit = {}) {
                     Text("Sobre", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
             },
-            bottomBar = {
-                NavigationBar(containerColor = DeepSpaceElevated.copy(alpha = 0.98f)) {
-                    NavigationBarItem(
-                        selected = false, onClick = onBack,
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                        label = { Text("Início", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                    NavigationBarItem(
-                        selected = false, onClick = onNavigateToSettings,
-                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                        label = { Text("Configurações", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                    NavigationBarItem(
-                        selected = true, onClick = { },
-                        icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                        label = { Text("Sobre", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.12f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary)
-                    )
-                }
-            }
+            bottomBar = { HsBottomNavigationBar(selected = "about", onHome = onBack, onSettings = onNavigateToSettings, onAbout = {}) }
         ) { padding ->
             Column(
                 Modifier.fillMaxSize().padding(padding).padding(horizontal = 20.dp).verticalScroll(rememberScrollState()),
@@ -120,9 +99,9 @@ private fun AboutInfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, tint = NeonCyan, modifier = Modifier.size(21.dp))
         Spacer(Modifier.width(12.dp))
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, color = TextSecondary, fontSize = 11.sp)
-            Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
         }
     }
 }

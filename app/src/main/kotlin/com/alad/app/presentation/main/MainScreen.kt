@@ -303,13 +303,15 @@ fun MainScreen(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "HS Voice Translator",
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Color.White,
-                                fontSize = 20.sp,
-                                letterSpacing = 1.sp
+                                fontSize = 17.sp,
+                                letterSpacing = 0.35.sp,
+                                maxLines = 1,
+                                softWrap = false
                             )
                             Text(
                                 text = "JOGUE SEM BARREIRAS",
@@ -339,52 +341,7 @@ fun MainScreen(
                     }
                 }
             },
-            bottomBar = {
-                NavigationBar(
-                    containerColor = DeepSpaceElevated.copy(alpha = 0.98f),
-                    contentColor = Color.White
-                ) {
-                    NavigationBarItem(
-                        selected = true,
-                        onClick = { },
-                        icon = { Icon(Icons.Default.Home, contentDescription = null) },
-                        label = { Text("Início", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = NeonCyan,
-                            selectedTextColor = NeonCyan,
-                            indicatorColor = NeonCyan.copy(alpha = 0.12f),
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = onNavigateToSettings,
-                        icon = { Icon(Icons.Default.Settings, contentDescription = null) },
-                        label = { Text("Configurações", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = NeonCyan,
-                            selectedTextColor = NeonCyan,
-                            indicatorColor = NeonCyan.copy(alpha = 0.12f),
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                    NavigationBarItem(
-                        selected = false,
-                        onClick = onNavigateToAbout,
-                        icon = { Icon(Icons.Default.Info, contentDescription = null) },
-                        label = { Text("Sobre", fontSize = 10.sp) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = NeonCyan,
-                            selectedTextColor = NeonCyan,
-                            indicatorColor = NeonCyan.copy(alpha = 0.12f),
-                            unselectedIconColor = TextSecondary,
-                            unselectedTextColor = TextSecondary
-                        )
-                    )
-                }
-            },
+            bottomBar = { HsBottomNavigationBar(selected = "home", onHome = {}, onSettings = onNavigateToSettings, onAbout = onNavigateToAbout) },
             containerColor = Color.Transparent
         ) { paddingValues ->
             Column(
@@ -962,25 +919,19 @@ fun MainScreen(
 
                 // 6. Floating Overlay Widget Switch Card
                 val isWidgetActive by com.alad.app.core.service.OverlayWidgetService.isWidgetActive.collectAsState()
+                val toggleFloatingWidget = {
+                    if (!Settings.canDrawOverlays(context)) {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:${context.packageName}"))
+                        context.startActivity(intent)
+                    } else {
+                        val intent = Intent(context, com.alad.app.core.service.OverlayWidgetService::class.java)
+                        if (isWidgetActive) context.stopService(intent) else context.startService(intent)
+                    }
+                }
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
-                    onClick = {
-                        if (!Settings.canDrawOverlays(context)) {
-                            val intent = Intent(
-                                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                Uri.parse("package:${context.packageName}")
-                            )
-                            context.startActivity(intent)
-                        } else {
-                            val intent = Intent(context, com.alad.app.core.service.OverlayWidgetService::class.java)
-                            if (isWidgetActive) {
-                                context.stopService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        }
-                    }
+                    onClick = toggleFloatingWidget
                 ) {
                     Row(
                         modifier = Modifier
@@ -1010,7 +961,7 @@ fun MainScreen(
 
                         Switch(
                             checked = isWidgetActive,
-                            onCheckedChange = null,
+                            onCheckedChange = { toggleFloatingWidget() },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = Color.White,
                                 checkedTrackColor = NeonCyan,
