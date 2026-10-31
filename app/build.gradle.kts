@@ -11,8 +11,8 @@ android {
         applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 32
-        versionName = "1.3.22"
+        versionCode = 33
+        versionName = "1.3.23"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
