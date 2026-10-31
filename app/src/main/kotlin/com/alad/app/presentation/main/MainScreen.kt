@@ -67,6 +67,7 @@ import java.net.URL
 fun MainScreen(
     viewModel: MainViewModel,
     onNavigateToSettings: () -> Unit,
+    onNavigateToAbout: () -> Unit,
     onConnectClicked: () -> Unit,
     onDisconnectClicked: () -> Unit
 ) {
@@ -325,7 +326,7 @@ fun MainScreen(
                         GlassIconButton(
                             icon = Icons.Default.Info,
                             contentDescription = stringResource(R.string.help_accessibility),
-                            onClick = { showHelpDialog = true },
+                            onClick = onNavigateToAbout,
                             tint = NeonCyan
                         )
 
