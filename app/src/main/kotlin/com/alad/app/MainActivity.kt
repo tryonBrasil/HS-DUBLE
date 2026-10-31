@@ -89,10 +89,11 @@ class MainActivity : ComponentActivity() {
                             )
                             SettingsScreen(
                                 viewModel = settingsViewModel,
-                                onBack = { currentScreen = "MAIN" }
+                                onBack = { currentScreen = "MAIN" },
+                                onNavigateToAbout = { currentScreen = "ABOUT" }
                             )
                         }
-                        "ABOUT" -> AboutScreen(onBack = { currentScreen = "MAIN" })
+                        "ABOUT" -> AboutScreen(onBack = { currentScreen = "MAIN" }, onNavigateToSettings = { currentScreen = "SETTINGS" })
                     }
                 }
             }
