@@ -1,4 +1,4 @@
-// Release v1.3.30
+// Release v1.3.31
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -12,8 +12,8 @@ android {
         applicationId = "com.hstech.voicetranslator"
         minSdk = 29
         targetSdk = 34
-        versionCode = 40
-        versionName = "1.3.30"
+        versionCode = 41
+        versionName = "1.3.31"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
