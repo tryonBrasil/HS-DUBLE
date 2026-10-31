@@ -51,31 +51,32 @@ class AudioCaptureManager {
                     .build()
 
                 val bufferSize = maxOf(MIN_BUFFER_SIZE, CHUNK_SIZE * 4)
-                recorder = AudioRecord.Builder()
+                val activeRecorder = AudioRecord.Builder()
                     .setAudioFormat(format)
                     .setAudioPlaybackCaptureConfig(configBuilder.build())
                     .setBufferSizeInBytes(bufferSize)
                     .build()
+                recorder = activeRecorder
 
-                if (recorder.state != AudioRecord.STATE_INITIALIZED) {
-                    val message = "Falha: AudioRecord não inicializou (estado ${recorder.state})"
+                if (activeRecorder.state != AudioRecord.STATE_INITIALIZED) {
+                    val message = "Falha: AudioRecord não inicializou (estado ${activeRecorder.state})"
                     Log.e(TAG, message)
                     onCaptureStatus?.invoke(message)
-                    recorder.release()
+                    activeRecorder.release()
+                    recorder = null
                     return
                 }
 
-                recorder.startRecording()
-                if (recorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                activeRecorder.startRecording()
+                if (activeRecorder.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
                     throw IllegalStateException("AudioRecord não entrou em estado de gravação")
                 }
 
-                audioRecord = recorder
+                audioRecord = activeRecorder
                 isRecording = true
                 onCaptureStatus?.invoke("Captura ativa; aguardando áudio do jogo")
 
-                val activeRecorder = recorder
-                captureThread = Thread({
+                val captureWorker = Thread({
                     android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO)
                     val buffer = ByteArray(CHUNK_SIZE)
                     val startedAt = android.os.SystemClock.elapsedRealtime()
@@ -120,7 +121,8 @@ class AudioCaptureManager {
                         isRecording = false
                     }
                 }, "AudioCaptureThread").apply { isDaemon = true }
-                captureThread = captureThread!!.also { it.start() }
+                captureThread = captureWorker
+                captureWorker.start()
             } catch (e: Exception) {
                 Log.e(TAG, "Error starting capture", e)
                 isRecording = false
