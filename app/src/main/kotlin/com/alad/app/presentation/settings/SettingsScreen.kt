@@ -243,7 +243,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                     Brush.horizontalGradient(
                                         listOf(
                                             NeonCyan.copy(alpha = 0.15f),
-                                            NeonPurple.copy(alpha = 0.15f)
+                                            NeonRose.copy(alpha = 0.15f)
                                         )
                                     )
                                 )
@@ -253,7 +253,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                         Brush.horizontalGradient(
                                             listOf(
                                                 NeonCyan.copy(alpha = 0.4f),
-                                                NeonPurple.copy(alpha = 0.4f)
+                                                NeonRose.copy(alpha = 0.4f)
                                             )
                                         )
                                     ),
@@ -291,7 +291,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    borderColor = NeonPurple,
+                    borderColor = NeonRose,
                     borderAlpha = 0.25f
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -300,13 +300,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(NeonPurple.copy(alpha = 0.15f)),
+                                    .background(NeonRose.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.RecordVoiceOver,
                                     contentDescription = null,
-                                    tint = NeonPurple,
+                                    tint = NeonRose,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -348,7 +348,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                     .background(
                                         if (isSelected) {
                                             Brush.horizontalGradient(
-                                                listOf(NeonPurple.copy(alpha = 0.25f), NeonBlue.copy(alpha = 0.15f))
+                                                listOf(NeonRose.copy(alpha = 0.25f), NeonCyan.copy(alpha = 0.15f))
                                             )
                                         } else {
                                             Brush.horizontalGradient(
@@ -359,7 +359,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                     .border(
                                         BorderStroke(
                                             1.dp,
-                                            if (isSelected) NeonPurple else Color.White.copy(alpha = 0.08f)
+                                            if (isSelected) NeonRose else Color.White.copy(alpha = 0.08f)
                                         ),
                                         shape = RoundedCornerShape(14.dp)
                                     )
@@ -384,7 +384,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(6.dp))
-                                                .background(NeonPurple.copy(alpha = 0.3f))
+                                                .background(NeonRose.copy(alpha = 0.3f))
                                                 .padding(horizontal = 8.dp, vertical = 2.dp)
                                         ) {
                                             Text(
@@ -448,7 +448,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
-                    borderColor = NeonBlue,
+                    borderColor = NeonCyan,
                     borderAlpha = 0.25f
                 ) {
                     Column(modifier = Modifier.padding(20.dp)) {
@@ -457,13 +457,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                 modifier = Modifier
                                     .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(NeonBlue.copy(alpha = 0.15f)),
+                                    .background(NeonCyan.copy(alpha = 0.15f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Tune,
                                     contentDescription = null,
-                                    tint = NeonBlue,
+                                    tint = NeonCyan,
                                     modifier = Modifier.size(20.dp)
                                 )
                             }
@@ -503,7 +503,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                                     .background(
                                         if (isSelected) {
                                             Brush.horizontalGradient(
-                                                listOf(NeonBlue.copy(alpha = 0.25f), NeonCyan.copy(alpha = 0.15f))
+                                                listOf(NeonCyan.copy(alpha = 0.25f), NeonCyan.copy(alpha = 0.15f))
                                             )
                                         } else {
                                             Brush.horizontalGradient(
@@ -571,7 +571,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                         .clip(RoundedCornerShape(18.dp))
                         .background(
                             Brush.horizontalGradient(
-                                listOf(NeonCyan, NeonBlue, NeonViolet)
+                                listOf(NeonCyan, NeonCyan, NeonCoral)
                             )
                         )
                         .border(
