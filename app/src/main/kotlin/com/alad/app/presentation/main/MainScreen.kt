@@ -285,7 +285,7 @@ fun MainScreen(
                                         Brush.linearGradient(
                                             listOf(
                                                 NeonCyan.copy(alpha = 0.9f),
-                                                NeonPurple.copy(alpha = 0.65f)
+                                                NeonRose.copy(alpha = 0.65f)
                                             )
                                         )
                                     ),
@@ -547,7 +547,7 @@ fun MainScreen(
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
-                    borderColor = NeonBlue,
+                    borderColor = NeonCyan,
                     borderAlpha = 0.22f
                 ) {
                     Column(modifier = Modifier.padding(18.dp)) {
@@ -727,7 +727,7 @@ fun MainScreen(
                                     searchQuery = ""
                                 },
                                 modifier = Modifier
-                                    .background(Color(0xFF131D31))
+                                    .background(DeepSpaceElevated)
                                     .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                             ) {
                                 val filtered = supportedLanguages.filter {
@@ -779,7 +779,7 @@ fun MainScreen(
                                     colors = OutlinedTextFieldDefaults.colors(
                                         focusedContainerColor = Color(0x25FFFFFF),
                                         unfocusedContainerColor = Color(0x12FFFFFF),
-                                        focusedBorderColor = NeonPurple,
+                                        focusedBorderColor = NeonRose,
                                         unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
                                         focusedTextColor = Color.White,
                                         unfocusedTextColor = Color.White
@@ -793,7 +793,7 @@ fun MainScreen(
                                     expanded = dialectExpanded,
                                     onDismissRequest = { dialectExpanded = false },
                                     modifier = Modifier
-                                        .background(Color(0xFF131D31))
+                                        .background(DeepSpaceElevated)
                                         .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                                 ) {
                                     availableDialects.forEach { dialect ->
@@ -801,7 +801,7 @@ fun MainScreen(
                                             text = {
                                                 Text(
                                                     dialect.displayName,
-                                                    color = if (dialect.code == targetDialect) NeonPurple else Color.White,
+                                                    color = if (dialect.code == targetDialect) NeonRose else Color.White,
                                                     fontWeight = if (dialect.code == targetDialect) FontWeight.Bold else FontWeight.Normal
                                                 )
                                             },
@@ -920,7 +920,7 @@ fun MainScreen(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = if (isOriginalMuted) "MUTED" else "${(originalVol * 100).toInt()}%",
-                                    color = if (isOriginalMuted) NeonCoral else NeonPurple,
+                                    color = if (isOriginalMuted) NeonCoral else NeonRose,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -951,8 +951,8 @@ fun MainScreen(
                             onValueChange = { viewModel.setOriginalVolumeRatio(it) },
                             valueRange = 0f..1f,
                             colors = SliderDefaults.colors(
-                                thumbColor = NeonPurple,
-                                activeTrackColor = NeonPurple,
+                                thumbColor = NeonRose,
+                                activeTrackColor = NeonRose,
                                 inactiveTrackColor = Color.White.copy(alpha = 0.15f)
                             ),
                             modifier = Modifier.fillMaxWidth()
@@ -1271,7 +1271,7 @@ fun AnimatedWaveform(
                 Brush.verticalGradient(
                     colors = listOf(
                         NeonCyan.copy(alpha = 0.32f),
-                        NeonBlue.copy(alpha = 0.12f),
+                        NeonCyan.copy(alpha = 0.12f),
                         Color.Transparent
                     ),
                     startY = centerY - height * 0.4f,
@@ -1293,7 +1293,7 @@ fun AnimatedWaveform(
             // Glowing Wave Crest Stroke
             val strokeBrush = if (isConnected) {
                 Brush.horizontalGradient(
-                    colors = listOf(NeonCyan, NeonBlue, NeonPurple)
+                    colors = listOf(NeonCyan, NeonCyan, NeonRose)
                 )
             } else {
                 Brush.horizontalGradient(
@@ -1328,7 +1328,7 @@ fun StartStopDubbingButton(
     val gradientColors = if (isConnected) {
         listOf(NeonRose, NeonCyan, NeonCoral)
     } else {
-        listOf(NeonCyan, NeonBlue, NeonViolet)
+        listOf(NeonCyan, NeonCyan, NeonCoral)
     }
 
     Box(
