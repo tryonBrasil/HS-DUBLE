@@ -70,8 +70,8 @@ fun AboutScreen(onBack: () -> Unit, onNavigateToSettings: () -> Unit = {}) {
                         AboutInfoRow(Icons.Default.Code, "Desenvolvido por", "HS Tech")
                         AboutInfoRow(Icons.Default.Policy, "Pacote", context.packageName)
                         AboutInfoRow(Icons.Default.SystemUpdate, "Atualizações automáticas", "Ativadas")
-                        AboutInfoRow(Icons.Default.VerifiedUser, "Licença", "Uso pessoal")
-                        AboutInfoRow(Icons.Default.PrivacyTip, "Política de privacidade", "Consulte o projeto HS-DUBLE")
+                        AboutInfoRow(Icons.Default.Policy, "Licença", "Uso pessoal")
+                        AboutInfoRow(Icons.Default.Info, "Política de privacidade", "Consulte o projeto HS-DUBLE")
                         AboutInfoRow(Icons.Default.Description, "Termos de uso", "Consulte o projeto HS-DUBLE")
                         HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
                         TextButton(onClick = { uriHandler.openUri("https://github.com/tryonBrasil/HS-DUBLE") }) {
