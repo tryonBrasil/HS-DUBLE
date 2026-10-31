@@ -311,11 +311,20 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             pendingAudio.clear()
             copy
         }
-        for (chunk in queued) {
-            if (!sendAudioNow(socket, chunk)) {
-                queueAudio(chunk)
+        for (index in queued.indices) {
+            if (!sendAudioNow(socket, queued[index])) {
+                // Restore the failed chunk and every later chunk in original order.
+                // Previously the remainder of this batch was silently discarded.
+                synchronized(audioLock) {
+                    for (pendingIndex in queued.lastIndex downTo index) {
+                        pendingAudio.addFirst(queued[pendingIndex])
+                    }
+                    while (pendingAudio.size > MAX_PENDING_AUDIO_CHUNKS) {
+                        pendingAudio.removeLast()
+                    }
+                }
                 scheduleReconnect("Fila de áudio não pôde ser enviada")
-                break
+                return
             }
         }
     }
@@ -332,5 +341,12 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         webSocket = null
         oldSocket?.close(1000, "User requested stop")
         onStatusChanged?.invoke("Disconnected")
+    }
+
+    /** Final disposal when the foreground service is ending permanently. */
+    @Synchronized
+    fun shutdown() {
+        disconnect()
+        reconnectExecutor.shutdownNow()
     }
 }
