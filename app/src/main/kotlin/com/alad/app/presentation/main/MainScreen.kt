@@ -586,7 +586,7 @@ fun MainScreen(
                                     sourceLangSearchQuery = ""
                                 },
                                 modifier = Modifier
-                                    .background(Color(0xFF131D31))
+                                    .background(DeepSpaceElevated)
                                     .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(12.dp))
                             ) {
                                 sourceLanguageOptions.filter { it.second.contains(sourceLangSearchQuery, ignoreCase = true) }
@@ -1326,7 +1326,7 @@ fun StartStopDubbingButton(
     )
 
     val gradientColors = if (isConnected) {
-        listOf(NeonRose, NeonCoral, Color(0xFFE11D48))
+        listOf(NeonRose, NeonCyan, NeonCoral)
     } else {
         listOf(NeonCyan, NeonBlue, NeonViolet)
     }
