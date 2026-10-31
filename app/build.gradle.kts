@@ -68,6 +68,8 @@ android {
     lint {
         checkReleaseBuilds = true
         abortOnError = true
+        // Persian resources are intentionally partial; Portuguese is the primary UI.
+        disable += "MissingTranslation"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
