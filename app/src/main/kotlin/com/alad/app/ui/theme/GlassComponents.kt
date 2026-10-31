@@ -10,6 +10,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -328,5 +335,16 @@ fun StatusBadge(
                 )
             }
         }
+    }
+}
+
+
+/** Shared HS navigation bar for consistent selection, spacing and color across screens. */
+@Composable
+fun HsBottomNavigationBar(selected: String, onHome: () -> Unit, onSettings: () -> Unit, onAbout: () -> Unit) {
+    NavigationBar(containerColor = DeepSpaceElevated.copy(alpha = 0.98f), contentColor = Color.White, tonalElevation = 0.dp) {
+        NavigationBarItem(selected = selected == "home", onClick = onHome, icon = { Icon(Icons.Default.Home, contentDescription = null) }, label = { Text("Início", fontSize = 10.sp, maxLines = 1) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.14f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary))
+        NavigationBarItem(selected = selected == "settings", onClick = onSettings, icon = { Icon(Icons.Default.Settings, contentDescription = null) }, label = { Text("Configurações", fontSize = 10.sp, maxLines = 1) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.14f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary))
+        NavigationBarItem(selected = selected == "about", onClick = onAbout, icon = { Icon(Icons.Default.Info, contentDescription = null) }, label = { Text("Sobre", fontSize = 10.sp, maxLines = 1) }, colors = NavigationBarItemDefaults.colors(selectedIconColor = NeonCyan, selectedTextColor = NeonCyan, indicatorColor = NeonCyan.copy(alpha = 0.14f), unselectedIconColor = TextSecondary, unselectedTextColor = TextSecondary))
     }
 }
