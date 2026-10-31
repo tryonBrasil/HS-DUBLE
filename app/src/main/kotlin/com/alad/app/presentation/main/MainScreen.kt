@@ -358,7 +358,7 @@ fun MainScreen(
                 HomeTranslationHero(
                     isTranslating = isConnected,
                     sourceLabel = supportedLanguages.find { it.first == sourceLang }?.second ?: "Detecção automática",
-                    targetLabel = supportedLanguages.find { it.first == targetLang }?.second ?: targetLang
+                    targetLabel = supportedLanguages.find { it.first == targetLang }?.second ?: if (targetLang.startsWith("pt")) "🇧🇷 Português (BR)" else targetLang
                 )
 
                 StartStopDubbingButton(
