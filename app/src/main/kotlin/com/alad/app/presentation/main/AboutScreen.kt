@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,7 @@ import com.alad.app.ui.theme.*
 @Composable
 fun AboutScreen(onBack: () -> Unit, onNavigateToSettings: () -> Unit = {}) {
     val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
     val version = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
     }.getOrDefault("—")
