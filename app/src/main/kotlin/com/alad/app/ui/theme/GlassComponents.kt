@@ -250,7 +250,7 @@ fun StatusBadge(
     GlassCard(
         modifier = modifier,
         shape = RoundedCornerShape(20.dp),
-        backgroundColor = if (isConnected) Color(0x700B1A2F) else Color(0x550F172A),
+        backgroundColor = if (isConnected) Color(0xB31A0D14) else Color(0x990D1017),
         borderColor = if (isConnected) NeonCyan else Color.White,
         borderAlpha = if (isConnected) 0.40f else 0.12f
     ) {
