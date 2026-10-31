@@ -33,9 +33,24 @@ object UpdateInstaller {
 
         val manager = context.getSystemService(DownloadManager::class.java)
             ?: throw IllegalStateException("Gerenciador de downloads indisponível.")
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val previousId = prefs.getLong(KEY_DOWNLOAD_ID, -1L)
+        if (previousId >= 0L) {
+            val previousCursor = manager.query(DownloadManager.Query().setFilterById(previousId))
+            previousCursor?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val previousStatus = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    if (previousStatus == DownloadManager.STATUS_PENDING ||
+                        previousStatus == DownloadManager.STATUS_RUNNING ||
+                        previousStatus == DownloadManager.STATUS_PAUSED
+                    ) {
+                        return previousId
+                    }
+                }
+            }
+        }
         val id = manager.enqueue(request)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .edit()
+        prefs.edit()
             .putLong(KEY_DOWNLOAD_ID, id)
             .remove(KEY_PENDING_URI)
             .apply()
