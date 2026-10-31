@@ -346,7 +346,10 @@ fun FloatingControllerCapsule(
                     .background(Color(0xFF151F2B))
                     .clickable {
                         context.startActivity(
-                            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                            Intent(context, MainActivity::class.java).apply {
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                                putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)
+                            }
                         )
                     }
                     .padding(vertical = 9.dp),
