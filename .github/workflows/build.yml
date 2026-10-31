@@ -4,11 +4,11 @@ name: Android CI
 on:
   workflow_dispatch:
   push:
-    branches: [ "main", "master", "hs-voice-translator-setup", "hs-visual-finalization" ]
+    branches: [ "main", "master", "hs-voice-translator-setup", "hs-visual-finalization", "hs-visual-reference-redesign" ]
     tags:
       - 'v*'
   pull_request:
-    branches: [ "main", "master" ]
+    branches: [ "main", "master", "hs-voice-translator-setup" ]
 
 permissions:
   contents: write
