@@ -436,11 +436,11 @@ class AudioDubbingForegroundService : Service() {
         audioPlayerManager?.stop()
         audioPlayerManager = null
 
-        webSocketManager?.shutdown()
-        webSocketManager = null
-
         settingsObservationJob?.cancel()
         settingsObservationJob = null
+
+        webSocketManager?.shutdown()
+        webSocketManager = null
 
         val projectionToStop = mediaProjection
         mediaProjection = null
