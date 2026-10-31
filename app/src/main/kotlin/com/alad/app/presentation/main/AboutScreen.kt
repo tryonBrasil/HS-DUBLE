@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,7 +32,6 @@ import com.alad.app.ui.theme.*
 @Composable
 fun AboutScreen(onBack: () -> Unit, onNavigateToSettings: () -> Unit = {}) {
     val context = LocalContext.current
-    val uriHandler = LocalUriHandler.current
     val version = runCatching {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
     }.getOrDefault("—")
@@ -90,13 +88,8 @@ fun AboutScreen(onBack: () -> Unit, onNavigateToSettings: () -> Unit = {}) {
                     Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         AboutInfoRow(Icons.Default.Code, "Desenvolvido por", "HS Tech")
                         AboutInfoRow(Icons.Default.SystemUpdate, "Atualizações automáticas", "Verificação ao abrir o aplicativo")
-                        AboutInfoRow(Icons.Default.Policy, "Licença", "Uso pessoal")
+                        AboutInfoRow(Icons.Default.Policy, "Identificador do app", context.packageName)
                         HorizontalDivider(color = Color.White.copy(alpha = 0.08f))
-                        TextButton(onClick = { uriHandler.openUri("https://tryonbrasil.github.io/PhilipsRemoteSemAds/") }) {
-                            Icon(Icons.Default.Policy, null, tint = NeonCyan)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Política de privacidade", color = Color.White)
-                        }
                         TextButton(onClick = { uriHandler.openUri("https://github.com/tryonBrasil/HS-DUBLE") }) {
                             Icon(Icons.Default.Description, null, tint = NeonCyan)
                             Spacer(Modifier.width(8.dp))
