@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_OPEN_SETTINGS = "com.hstech.voicetranslator.OPEN_SETTINGS"
+        @Volatile private var crashHandlerInstalled = false
     }
 
     private lateinit var mainViewModel: MainViewModel
@@ -72,7 +73,9 @@ class MainActivity : ComponentActivity() {
         requestedScreen.value = if (intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) "SETTINGS" else "MAIN"
 
         val repository = UserPreferencesRepository(applicationContext)
-        val previousCrash = File(filesDir, "last_crash.txt").takeIf { it.exists() }?.readText().orEmpty()
+        val previousCrash = runCatching {
+            File(filesDir, "last_crash.txt").takeIf { it.exists() }?.readText().orEmpty()
+        }.getOrDefault("")
 
         setContent {
             com.alad.app.ui.theme.ALADTheme {
@@ -146,7 +149,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @Synchronized
     private fun installCrashDiagnostics() {
+        if (crashHandlerInstalled) return
+        crashHandlerInstalled = true
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             runCatching {
