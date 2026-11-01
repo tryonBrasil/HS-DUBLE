@@ -67,10 +67,10 @@ class AudioPlayerManager(private val context: Context) {
             Log.w(TAG, "Could not query STREAM_MUSIC volume", e)
         }
 
-        // Route the translated voice through the normal media stream so the user's
-        // media volume controls and device output routing apply consistently.
+        // Keep translated speech on the assistant usage so muting STREAM_MUSIC
+        // for the original game audio does not mute the Portuguese dubbing as well.
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setUsage(AudioAttributes.USAGE_ASSISTANT)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
             
