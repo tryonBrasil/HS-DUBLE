@@ -21,7 +21,7 @@ class AudioCaptureManager {
         const val CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
         const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
         val MIN_BUFFER_SIZE = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        const val CHUNK_SIZE = 3200 // 100 ms, 16 kHz, mono, PCM 16-bit
+        const val CHUNK_SIZE = 1600 // 50 ms, 16 kHz, mono, PCM 16-bit; menor espera antes de enviar áudio ao Gemini.
     }
 
     @SuppressLint("MissingPermission")
@@ -87,7 +87,7 @@ class AudioCaptureManager {
                             val read = activeRecorder.read(buffer, 0, buffer.size, AudioRecord.READ_BLOCKING)
                             if (read > 0) {
                                 chunksRead++
-                                if (chunksRead % 100 == 0) {
+                                if (chunksRead % 200 == 0) {
                                     Log.d(TAG, "Captured 100 audio chunks; latest size=$read")
                                 }
                                 val chunk = buffer.copyOf(read)
