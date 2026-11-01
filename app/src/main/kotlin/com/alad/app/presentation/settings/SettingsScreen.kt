@@ -41,7 +41,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val apiKey by viewModel.userApiKey.collectAsState()
-    val selectedVoice by viewModel.voicePersona.collectAsState()
     val selectedMode by viewModel.dubbingMode.collectAsState()
     val showDualSubtitles by viewModel.showDualSubtitles.collectAsState()
     val sourceLang by viewModel.sourceLang.collectAsState()
@@ -381,116 +380,45 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit = {}, onNavi
                     }
                 }
 
-                // 2. AI Voice Persona Selection Card
+                // Gemini Live Translate currently selects its output voice automatically.
+                // Do not expose manual persona choices that this translation model cannot apply.
                 GlassCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(24.dp),
                     borderColor = NeonRose,
                     borderAlpha = 0.25f
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .clip(CircleShape)
-                                    .background(NeonRose.copy(alpha = 0.15f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.RecordVoiceOver,
-                                    contentDescription = null,
-                                    tint = NeonRose,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column {
-                                Text(
-                                    text = stringResource(R.string.voice_persona),
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White,
-                                    fontSize = 16.sp
-                                )
-                                Text(
-                                    text = stringResource(R.string.voice_persona_desc),
-                                    color = TextSecondary,
-                                    fontSize = 12.sp
-                                )
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(NeonRose.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.RecordVoiceOver,
+                                contentDescription = null,
+                                tint = NeonRose,
+                                modifier = Modifier.size(20.dp)
+                            )
                         }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        val voices = listOf(
-                            Triple("Puck", stringResource(R.string.voice_puck), stringResource(R.string.voice_energetic)),
-                            Triple("Charon", stringResource(R.string.voice_charon), stringResource(R.string.voice_deep)),
-                            Triple("Aoede", stringResource(R.string.voice_aoede), stringResource(R.string.voice_melodic)),
-                            Triple("Fenrir", stringResource(R.string.voice_fenrir), stringResource(R.string.voice_authoritative)),
-                            Triple("Kore", stringResource(R.string.voice_kore), stringResource(R.string.voice_calm))
-                        )
-
-                        voices.forEach { (voiceId, voiceLabel, badge) ->
-                            val isSelected = selectedVoice == voiceId
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .background(
-                                        if (isSelected) {
-                                            Brush.horizontalGradient(
-                                                listOf(NeonRose.copy(alpha = 0.25f), NeonCyan.copy(alpha = 0.15f))
-                                            )
-                                        } else {
-                                            Brush.horizontalGradient(
-                                                listOf(Color.White.copy(alpha = 0.04f), Color.White.copy(alpha = 0.02f))
-                                            )
-                                        }
-                                    )
-                                    .border(
-                                        BorderStroke(
-                                            1.dp,
-                                            if (isSelected) NeonRose else Color.White.copy(alpha = 0.08f)
-                                        ),
-                                        shape = RoundedCornerShape(14.dp)
-                                    )
-                                    .clickable { viewModel.updateVoicePersona(voiceId) }
-                                    .padding(horizontal = 14.dp, vertical = 10.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = voiceLabel,
-                                            color = if (isSelected) Color.White else Color.White.copy(alpha = 0.85f),
-                                            fontSize = 14.sp,
-                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                        )
-                                    }
-
-                                    if (isSelected) {
-                                        Box(
-                                            modifier = Modifier
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .background(NeonRose.copy(alpha = 0.3f))
-                                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                                        ) {
-                                            Text(
-                                                text = badge.uppercase(),
-                                                color = NeonCyan,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-                            }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Voz da dublagem",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = "Voz natural escolhida automaticamente pelo Gemini Live Translate. A seleção manual de vozes não é compatível com este modelo.",
+                                color = TextSecondary,
+                                fontSize = 12.sp
+                            )
                         }
                     }
                 }

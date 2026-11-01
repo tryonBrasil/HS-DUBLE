@@ -214,12 +214,12 @@ class AudioDubbingForegroundService : Service() {
 
                 webSocketManager = ALADWebSocketManager(okHttpClient)
 
-                // Initialize AudioPlayerManager if not in SUBTITLE_ONLY mode
+                // Keep the player ready in every mode so switching from subtitles-only to
+                // voice dubbing during an active session works without restarting capture.
+                audioPlayerManager = AudioPlayerManager(applicationContext)
+                audioPlayerManager?.start()
+                audioPlayerManager?.setDubbingAudio(volumeRatio, isDubbingMuted)
                 if (dubbingMode != UserPreferencesRepository.MODE_SUBTITLE_ONLY) {
-                    audioPlayerManager = AudioPlayerManager(applicationContext)
-                    audioPlayerManager?.start()
-                    audioPlayerManager?.setVoicePersona(voicePersona)
-                    audioPlayerManager?.setDubbingAudio(volumeRatio, isDubbingMuted)
                     audioPlayerManager?.setOriginalMediaAudio(originalVolume, isOriginalMuted)
                 }
 
@@ -286,21 +286,33 @@ class AudioDubbingForegroundService : Service() {
                             DubbingSessionRepository.originalVolumeRatio,
                             DubbingSessionRepository.isOriginalMuted
                         ) { ratio, muted -> Pair(ratio, muted) }.collect { (ratio, muted) ->
-                            audioPlayerManager?.setOriginalMediaAudio(ratio, muted)
+                            if (activeDubbingMode != UserPreferencesRepository.MODE_SUBTITLE_ONLY) {
+                                audioPlayerManager?.setOriginalMediaAudio(ratio, muted)
+                            }
                         }
                     }
 
-                    // 3. Real-time voice persona timbre shaping without dropping WebSocket
-                    launch {
-                        repository.voicePersonaFlow.collect { newVoice ->
-                            audioPlayerManager?.setVoicePersona(newVoice)
-                        }
-                    }
-
-                    // 4. Real-time dubbing mode switching without dropping WebSocket
+                    // 3. Real-time dubbing mode switching without dropping WebSocket.
+                    // Restore game volume in subtitles-only mode and reapply the mix when
+                    // translated voice playback is enabled again.
                     launch {
                         repository.dubbingModeFlow.collect { newMode ->
-                            activeDubbingMode = newMode
+                            if (newMode != activeDubbingMode) {
+                                activeDubbingMode = newMode
+                                if (newMode == UserPreferencesRepository.MODE_SUBTITLE_ONLY) {
+                                    audioPlayerManager?.flushPlayback()
+                                    audioPlayerManager?.restoreOriginalMediaAudio()
+                                } else {
+                                    audioPlayerManager?.setDubbingAudio(
+                                        DubbingSessionRepository.dubbingVolume.value,
+                                        DubbingSessionRepository.isDubbingMuted.value
+                                    )
+                                    audioPlayerManager?.setOriginalMediaAudio(
+                                        DubbingSessionRepository.originalVolumeRatio.value,
+                                        DubbingSessionRepository.isOriginalMuted.value
+                                    )
+                                }
+                            }
                         }
                     }
 

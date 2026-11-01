@@ -27,8 +27,9 @@ class AudioPlayerManager(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
 
     private val playerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    // Preserve all speech chunks; dropping old chunks cuts syllables while subtitles keep advancing.
-    private val audioChannel = Channel<QueuedAudio>(20)
+    // Keep translated speech chunks queued through short playback scheduling delays.
+    // Interruptions and session shutdown explicitly clear/cancel this queue.
+    private val audioChannel = Channel<QueuedAudio>(Channel.UNLIMITED)
     private var playbackJob: Job? = null
 
     private var initialMusicVolume: Int = -1
@@ -161,10 +162,8 @@ class AudioPlayerManager(private val context: Context) {
 
     fun playAudioData(data: ByteArray) {
         val queued = QueuedAudio(data.copyOf(), playbackGeneration)
-        // Keep latency bounded: if playback falls behind, discard the oldest queued chunk.
         if (audioChannel.trySend(queued).isFailure) {
-            audioChannel.tryReceive()
-            audioChannel.trySend(queued)
+            Log.w(TAG, "Audio playback queue is closed; dropping chunk")
         }
     }
 
@@ -205,6 +204,16 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    fun restoreOriginalMediaAudio() {
+        val originalVolume = initialMusicVolume
+        if (originalVolume < 0) return
+        try {
+            audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, originalVolume, 0)
+        } catch (e: Exception) {
+            Log.w(TAG, "Error restoring original media volume", e)
+        }
+    }
+
     fun setOriginalMediaAudio(volumeRatio: Float, isMuted: Boolean) {
         try {
             val baseVol = baseMusicVolume
@@ -221,13 +230,7 @@ class AudioPlayerManager(private val context: Context) {
 
     fun stop() {
         // Restore original system music volume
-        if (initialMusicVolume >= 0) {
-            try {
-                audioManager?.setStreamVolume(AudioManager.STREAM_MUSIC, initialMusicVolume, 0)
-            } catch (e: Exception) {
-                Log.w(TAG, "Error restoring STREAM_MUSIC volume", e)
-            }
-        }
+        restoreOriginalMediaAudio()
 
         playbackJob?.cancel()
         playbackJob = null

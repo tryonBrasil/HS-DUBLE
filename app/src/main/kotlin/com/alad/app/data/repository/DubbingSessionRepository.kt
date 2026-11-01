@@ -204,14 +204,13 @@ object DubbingSessionRepository {
     }
 
     fun onTurnComplete() {
+        // Keep the final caption visible after the model finishes its turn. A fixed 4.5s
+        // timeout can hide the last words while the audio playback queue is still draining.
+        // The next incoming transcript replaces the previous turn; stopping clears it.
         isNewTurn = true
         isNewSourceTurn = true
         silenceJob?.cancel()
-        silenceJob = repositoryScope.launch {
-            delay(4500)
-            _liveSubtitleText.value = ""
-            _liveSourceSubtitleText.value = ""
-        }
+        silenceJob = null
     }
 
     fun clearSubtitle() {
