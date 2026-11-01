@@ -67,8 +67,10 @@ class AudioPlayerManager(private val context: Context) {
             Log.w(TAG, "Could not query STREAM_MUSIC volume", e)
         }
 
+        // Route the translated voice through the normal media stream so the user's
+        // media volume controls and device output routing apply consistently.
         val audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
             .build()
             
@@ -90,6 +92,9 @@ class AudioPlayerManager(private val context: Context) {
         }
 
         val minBufferSize = AudioTrack.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+        if (minBufferSize <= 0) {
+            throw IllegalStateException("AudioTrack não suporta PCM 24 kHz mono (código " + minBufferSize + ")")
+        }
         val bufferSize = maxOf(minBufferSize, 4096 * 2)
 
         val audioFormat = AudioFormat.Builder()
@@ -98,15 +103,20 @@ class AudioPlayerManager(private val context: Context) {
             .setEncoding(AUDIO_FORMAT)
             .build()
 
-        audioTrack = AudioTrack.Builder()
+        val createdTrack = AudioTrack.Builder()
             .setAudioAttributes(audioAttributes)
             .setAudioFormat(audioFormat)
             .setBufferSizeInBytes(bufferSize)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
             .build()
-
-        audioTrack?.play()
+        if (createdTrack.state != AudioTrack.STATE_INITIALIZED) {
+            createdTrack.release()
+            throw IllegalStateException("AudioTrack não foi inicializado corretamente")
+        }
+        audioTrack = createdTrack
+        createdTrack.play()
+        Log.i(TAG, "AudioTrack ativo: sampleRate=" + SAMPLE_RATE + ", bufferSize=" + bufferSize + ", playState=" + createdTrack.playState)
 
         playbackJob = playerScope.launch {
             for (queuedAudio in audioChannel) {
@@ -148,7 +158,9 @@ class AudioPlayerManager(private val context: Context) {
                                     processedChunk, 0, processedChunk.size, AudioTrack.WRITE_BLOCKING
                                 )
                                 if (written < 0) {
-                                    Log.w(TAG, "AudioTrack write failed: $written")
+                                    Log.e(TAG, "AudioTrack write failed: $written")
+                                } else if (written != processedChunk.size) {
+                                    Log.w(TAG, "AudioTrack accepted a partial chunk: " + written + "/" + processedChunk.size + " bytes")
                                 }
                             }
                         }
