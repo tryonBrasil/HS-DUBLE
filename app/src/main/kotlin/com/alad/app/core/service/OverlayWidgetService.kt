@@ -23,7 +23,6 @@ import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material.icons.filled.VisibilityOff
@@ -42,7 +41,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
-import com.alad.app.MainActivity
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -347,34 +345,20 @@ fun FloatingControllerCapsule(
                 modifier = Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFF151F2B))
                     .clickable {
-                        context.startActivity(
-                            Intent(context, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                                putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)
-                            }
-                        )
+                        DubbingSessionRepository.setSubtitleOverlayVisibility(!isSubtitleVisible)
                     }
                     .padding(vertical = 9.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Icon(Icons.Default.Settings, contentDescription = null, tint = Color.White, modifier = Modifier.size(19.dp))
-                Spacer(Modifier.height(3.dp))
-                Text("Configurações", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                Text("Abrir app", color = TextSecondary, fontSize = 8.sp)
-            }
-        }
-        if (isRunning) {
-            Spacer(Modifier.height(10.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text("Legendas", color = TextSecondary, fontSize = 10.sp)
-                androidx.compose.material3.Switch(
-                    checked = isSubtitleVisible,
-                    onCheckedChange = { DubbingSessionRepository.setSubtitleOverlayVisibility(it) }
+                Icon(
+                    if (isSubtitleVisible) Icons.Default.Subtitles else Icons.Default.VisibilityOff,
+                    contentDescription = if (isSubtitleVisible) "Ocultar legendas" else "Mostrar legendas",
+                    tint = if (isSubtitleVisible) Color(0xFF36E59B) else TextSecondary,
+                    modifier = Modifier.size(19.dp)
                 )
+                Spacer(Modifier.height(3.dp))
+                Text("Legendas", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (isSubtitleVisible) "Visíveis" else "Ocultas", color = TextSecondary, fontSize = 8.sp)
             }
         }
         }
