@@ -43,6 +43,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     private var reconnectFuture: ScheduledFuture<*>? = null
     private var reconnectAttempts = 0
     @Volatile private var lastDetectedSourceLanguage = ""
+    @Volatile private var receivedAudioChunks = 0L
+    @Volatile private var receivedAudioBytes = 0L
     private val audioLock = Any()
     private val pendingAudio = ArrayDeque<ByteArray>()
 
@@ -67,6 +69,8 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         currentDubbingMode = dubbingMode
         currentTargetDialect = targetDialect
         lastDetectedSourceLanguage = ""
+        receivedAudioChunks = 0L
+        receivedAudioBytes = 0L
         shouldReconnect = true
         reconnectAttempts = 0
         reconnectFuture?.cancel(false)
@@ -135,7 +139,13 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
                                         val inlineData = part.optJSONObject("inlineData") ?: part.optJSONObject("inline_data")
                                         val encoded = inlineData?.optString("data", "")
                                         if (!encoded.isNullOrEmpty()) {
-                                            onBinaryMessageReceived?.invoke(Base64.decode(encoded, Base64.DEFAULT))
+                                            val audioBytes = Base64.decode(encoded, Base64.DEFAULT)
+                                            receivedAudioChunks++
+                                            receivedAudioBytes += audioBytes.size
+                                            if (receivedAudioChunks == 1L || receivedAudioChunks % 100L == 0L) {
+                                                Log.i(TAG, "Gemini translated audio received: chunks=" + receivedAudioChunks + ", totalBytes=" + receivedAudioBytes + ", latestBytes=" + audioBytes.size)
+                                            }
+                                            onBinaryMessageReceived?.invoke(audioBytes)
                                         }
                                     }
                                 }
@@ -252,14 +262,15 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         val setupPayload = JSONObject().apply {
             put("setup", JSONObject().apply {
                 put("model", "models/gemini-3.5-live-translate-preview")
-                // Live Translate requires transcription and translation options inside
-                // generationConfig. Keep OCR/text input out of this audio-only stream.
+                // In the raw v1beta WebSocket frame, transcription configs belong
+                // directly under setup (not inside generationConfig). Nesting them in
+                // generationConfig causes error 1007 and prevents all translated audio.
+                put("inputAudioTranscription", JSONObject().apply {
+                    sourceLanguageHint?.let { put("languageCodes", JSONArray().put(it)) }
+                })
+                put("outputAudioTranscription", JSONObject())
                 put("generationConfig", JSONObject().apply {
                     put("responseModalities", JSONArray().put("AUDIO"))
-                    put("inputAudioTranscription", JSONObject().apply {
-                        sourceLanguageHint?.let { put("languageCodes", JSONArray().put(it)) }
-                    })
-                    put("outputAudioTranscription", JSONObject())
                     put("translationConfig", JSONObject().apply {
                         put("targetLanguageCode", targetLanguageCode)
                         put("echoTargetLanguage", false)
