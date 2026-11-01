@@ -161,6 +161,8 @@ class AudioPlayerManager(private val context: Context) {
                                     Log.e(TAG, "AudioTrack write failed: $written")
                                 } else if (written != processedChunk.size) {
                                     Log.w(TAG, "AudioTrack accepted a partial chunk: " + written + "/" + processedChunk.size + " bytes")
+                                } else {
+                                    Unit
                                 }
                             }
                         }
