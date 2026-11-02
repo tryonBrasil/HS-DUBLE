@@ -29,8 +29,8 @@ class AudioPlayerManager(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
 
     private val playerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    // Input audio is captured in 50 ms chunks. Cap translated playback at about 1 second
-    // so a slow device cannot build an unbounded backlog of speech that is already stale.
+    // Bound the number of pending translated chunks so a slow device cannot build
+    // an unbounded backlog of speech that is already stale. Chunk duration is model-defined.
     // playAudioData() drops the oldest queued chunk when this capacity is reached.
     private val audioChannel = Channel<QueuedAudio>(capacity = MAX_QUEUED_AUDIO_CHUNKS)
     private var playbackJob: Job? = null
