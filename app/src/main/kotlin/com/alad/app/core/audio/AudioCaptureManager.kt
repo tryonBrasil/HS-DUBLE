@@ -88,7 +88,7 @@ class AudioCaptureManager {
                             if (read > 0) {
                                 chunksRead++
                                 if (chunksRead % 200 == 0) {
-                                    Log.d(TAG, "Captured 100 audio chunks; latest size=$read")
+                                    Log.d(TAG, "Captured $chunksRead audio chunks; latest size=$read")
                                 }
                                 val chunk = buffer.copyOf(read)
                                 val rms = AudioUtils.calculateRms(chunk)
