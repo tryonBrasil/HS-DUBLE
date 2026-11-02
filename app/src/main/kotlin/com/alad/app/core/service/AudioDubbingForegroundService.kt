@@ -33,6 +33,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import java.util.concurrent.TimeUnit
 import java.util.Locale
@@ -67,6 +71,7 @@ class AudioDubbingForegroundService : Service() {
     private var settingsObservationJob: Job? = null
     @Volatile private var startupJob: Job? = null
     @Volatile private var isStopping = false
+    @Volatile private var stopCompletion: CompletableDeferred<Unit>? = null
     private var screenSubtitleCaptureManager: ScreenSubtitleCaptureManager? = null
     private var screenSubtitleTts: TextToSpeech? = null
     @Volatile private var screenSubtitleTtsReady = false
@@ -106,9 +111,13 @@ class AudioDubbingForegroundService : Service() {
                 }
             }
             ACTION_STOP -> {
-                stopDubbing()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                serviceScope.launch {
+                    stopDubbing()
+                    withContext(Dispatchers.Main) {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                }
             }
         }
 
@@ -142,12 +151,14 @@ class AudioDubbingForegroundService : Service() {
             override fun onStop() {
                 Log.d(TAG, "MediaProjection stopped by system")
                 if (isStopping) return
-                serviceScope.launch(Dispatchers.Main) {
+                serviceScope.launch {
                     if (isStopping) return@launch
                     try {
                         stopDubbing()
-                        stopForeground(STOP_FOREGROUND_REMOVE)
-                        stopSelf()
+                        withContext(Dispatchers.Main) {
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                        }
                     } catch (e: Exception) {
                         Log.e(TAG, "Error stopping dubbing from projection callback", e)
                     }
@@ -373,8 +384,10 @@ class AudioDubbingForegroundService : Service() {
                 Log.e(TAG, "Error during dubbing session startup", e)
                 DubbingSessionRepository.setConnectionStatus("Erro ao iniciar: ${e.message ?: e.javaClass.simpleName}")
                 stopDubbing()
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
+                withContext(Dispatchers.Main) {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
             } finally {
                 startupJob = null
             }
@@ -428,38 +441,103 @@ class AudioDubbingForegroundService : Service() {
         }
     }
 
-    @Synchronized
-    private fun stopDubbing() {
+    private suspend fun stopDubbing() {
+        val currentJob = currentCoroutineContext()[Job]
+        val existingCompletion: CompletableDeferred<Unit>?
+        val ownsStop: Boolean
+        synchronized(this) {
+            existingCompletion = stopCompletion
+            ownsStop = !isStopping
+            if (ownsStop) {
+                isStopping = true
+                stopCompletion = CompletableDeferred()
+            }
+        }
+        if (!ownsStop) {
+            existingCompletion?.await()
+            return
+        }
+
+        val completion = stopCompletion
+        try {
+            val startup = startupJob
+            if (startup != null && startup !== currentJob) {
+                startup.cancelAndJoin()
+            }
+            startupJob = null
+
+            screenSubtitleCaptureManager?.stop()
+            screenSubtitleCaptureManager = null
+
+            screenSubtitleTtsReady = false
+            pendingScreenSpeech = null
+            screenSubtitleTts?.stop()
+            screenSubtitleTts?.shutdown()
+            screenSubtitleTts = null
+
+            // Stop AudioRecord first. stopCapture joins the capture worker so every
+            // captured PCM chunk is handed to the WebSocket before audioStreamEnd.
+            audioCaptureManager?.stopCapture()
+            audioCaptureManager = null
+
+            val socket = webSocketManager
+            if (socket != null) {
+                socket.endAudioAndAwaitTurnComplete(timeoutMillis = 2200L)
+            }
+
+            // Drain translated chunks before closing the socket and releasing playback.
+            audioPlayerManager?.stop()
+            audioPlayerManager = null
+
+            settingsObservationJob?.cancel()
+            settingsObservationJob = null
+
+            webSocketManager?.shutdown()
+            webSocketManager = null
+
+            val projectionToStop = mediaProjection
+            mediaProjection = null
+            runCatching { projectionToStop?.stop() }
+                .onFailure { Log.w(TAG, "Error releasing MediaProjection", it) }
+
+            DubbingSessionRepository.resetSession()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error during graceful dubbing shutdown; forcing cleanup", e)
+            audioCaptureManager?.stopCapture()
+            audioCaptureManager = null
+            audioPlayerManager?.let { runCatching { it.stop() } }
+            audioPlayerManager = null
+            webSocketManager?.shutdown()
+            webSocketManager = null
+            runCatching { mediaProjection?.stop() }
+            mediaProjection = null
+            DubbingSessionRepository.resetSession()
+        } finally {
+            completion?.complete(Unit)
+        }
+    }
+
+    /** Synchronous fallback for Android destroying the service unexpectedly. */
+    private fun forceStopDubbing() {
         isStopping = true
         startupJob?.cancel()
         startupJob = null
-        DubbingSessionRepository.resetSession()
-
         screenSubtitleCaptureManager?.stop()
         screenSubtitleCaptureManager = null
-
-        screenSubtitleTtsReady = false
-        pendingScreenSpeech = null
         screenSubtitleTts?.stop()
         screenSubtitleTts?.shutdown()
         screenSubtitleTts = null
-
         audioCaptureManager?.stopCapture()
         audioCaptureManager = null
-
-        audioPlayerManager?.stop()
+        audioPlayerManager?.let { runCatching { /* graceful stop is handled above when possible */ } }
         audioPlayerManager = null
-
         settingsObservationJob?.cancel()
         settingsObservationJob = null
-
         webSocketManager?.shutdown()
         webSocketManager = null
-
-        val projectionToStop = mediaProjection
+        runCatching { mediaProjection?.stop() }
         mediaProjection = null
-        runCatching { projectionToStop?.stop() }
-            .onFailure { Log.w(TAG, "Error releasing MediaProjection", it) }
+        DubbingSessionRepository.resetSession()
     }
 
     override fun onBind(intent: Intent?): IBinder? {
@@ -467,7 +545,7 @@ class AudioDubbingForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        stopDubbing()
+        forceStopDubbing()
         serviceScope.cancel()
         super.onDestroy()
     }
