@@ -15,6 +15,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AudioPlayerManager(private val context: Context) {
     private data class QueuedAudio(val data: ByteArray, val generation: Long)
@@ -251,12 +253,13 @@ class AudioPlayerManager(private val context: Context) {
     }
 
     fun stop() {
-        // Restore original system music volume
+        // Restore original system music volume immediately, but let already queued
+        // translated speech finish before releasing AudioTrack.
         restoreOriginalMediaAudio()
 
-        playbackJob?.cancel()
+        val jobToDrain = playbackJob
         playbackJob = null
-        playerScope.cancel()
+        audioChannel.close()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
@@ -265,12 +268,29 @@ class AudioPlayerManager(private val context: Context) {
             audioManager?.abandonAudioFocus { }
         }
 
-        try {
-            audioTrack?.stop()
-            audioTrack?.release()
-        } catch (e: Exception) {
-            Log.w(TAG, "Error stopping audioTrack", e)
+        playerScope.launch {
+            val drained = withTimeoutOrNull(3000L) {
+                jobToDrain?.join()
+                true
+            } ?: false
+
+            if (!drained) {
+                Log.w(TAG, "Playback drain timed out; stopping remaining queued speech")
+                jobToDrain?.cancel()
+            } else {
+                // AudioTrack may still contain a small hardware buffer after the final write.
+                delay(180L)
+            }
+
+            try {
+                audioTrack?.stop()
+                audioTrack?.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping audioTrack", e)
+            } finally {
+                audioTrack = null
+                playerScope.cancel()
+            }
         }
-        audioTrack = null
     }
 }
