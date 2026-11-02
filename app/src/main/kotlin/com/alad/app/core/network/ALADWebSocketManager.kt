@@ -347,7 +347,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
      * the current turn so its final translated audio can reach the playback queue.
      * Call only after AudioRecord has stopped and its capture thread has joined.
      */
-    suspend fun endAudioAndAwaitTurnComplete(timeoutMillis: Long = 2200L): Boolean {
+    suspend fun endAudioAndAwaitTurnComplete(timeoutMillis: Long = 10000L): Boolean {
         val socket = webSocket
         if (!shouldReconnect || !isSetupComplete || socket == null) {
             Log.w(TAG, "Cannot signal audioStreamEnd: Gemini socket is not ready")
