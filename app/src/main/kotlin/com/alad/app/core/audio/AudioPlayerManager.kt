@@ -186,8 +186,12 @@ class AudioPlayerManager(private val context: Context) {
         // Remove one oldest chunk, then retry once. If the channel is already closed,
         // tryReceive also fails and the new chunk is safely discarded.
         val removedOldest = audioChannel.tryReceive().isSuccess
-        if (removedOldest && audioChannel.trySend(queued).isSuccess) {
-            Log.w(TAG, "Playback fell behind; discarded the oldest audio chunk")
+        // Retry even if no item was removed: the playback worker may have freed a slot
+        // between the failed trySend() and tryReceive().
+        if (audioChannel.trySend(queued).isSuccess) {
+            if (removedOldest) {
+                Log.w(TAG, "Playback fell behind; discarded the oldest audio chunk")
+            }
         } else {
             Log.w(TAG, "Audio playback queue is closed or unavailable; dropping chunk")
         }
