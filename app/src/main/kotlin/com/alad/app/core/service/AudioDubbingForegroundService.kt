@@ -482,7 +482,7 @@ class AudioDubbingForegroundService : Service() {
 
             val socket = webSocketManager
             if (socket != null) {
-                socket.endAudioAndAwaitTurnComplete(timeoutMillis = 2200L)
+                socket.endAudioAndAwaitTurnComplete(timeoutMillis = 10000L)
             }
 
             // Drain translated chunks before closing the socket and releasing playback.
