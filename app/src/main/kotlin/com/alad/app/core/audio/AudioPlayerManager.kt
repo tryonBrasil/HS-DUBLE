@@ -158,15 +158,25 @@ class AudioPlayerManager(private val context: Context) {
                         // cannot be written back after the AudioTrack buffer has been cleared.
                         if (queuedAudio.generation == playbackGeneration) {
                             audioTrack?.let { track ->
-                                val written = track.write(
-                                    processedChunk, 0, processedChunk.size, AudioTrack.WRITE_BLOCKING
-                                )
-                                if (written < 0) {
-                                    Log.e(TAG, "AudioTrack write failed: $written")
-                                } else if (written != processedChunk.size) {
-                                    Log.w(TAG, "AudioTrack accepted a partial chunk: " + written + "/" + processedChunk.size + " bytes")
-                                } else {
-                                    Unit
+                                // WRITE_BLOCKING can still return a partial write. Keep writing
+                                // the remainder; discarding it here cuts the tail of translated words.
+                                var offset = 0
+                                while (offset < processedChunk.size &&
+                                    queuedAudio.generation == playbackGeneration) {
+                                    val written = track.write(
+                                        processedChunk,
+                                        offset,
+                                        processedChunk.size - offset,
+                                        AudioTrack.WRITE_BLOCKING
+                                    )
+                                    if (written <= 0) {
+                                        Log.e(TAG, "AudioTrack write stopped at " + offset + "/" + processedChunk.size + " bytes (result=" + written + ")")
+                                        break
+                                    }
+                                    offset += written
+                                }
+                                if (offset < processedChunk.size) {
+                                    Log.w(TAG, "Audio chunk incomplete: " + offset + "/" + processedChunk.size + " bytes")
                                 }
                             }
                         }
@@ -299,7 +309,7 @@ class AudioPlayerManager(private val context: Context) {
             audioManager?.abandonAudioFocus { }
         }
 
-        val drained = withTimeoutOrNull(3000L) {
+        val drained = withTimeoutOrNull(10000L) {
             jobToDrain?.join()
             true
         } ?: false
