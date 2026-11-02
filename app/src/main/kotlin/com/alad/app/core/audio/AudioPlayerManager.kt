@@ -258,6 +258,31 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
+    /** Immediate resource release when Android destroys the service unexpectedly. */
+    fun forceStop() {
+        audioChannel.close()
+        playbackJob?.cancel()
+        playbackJob = null
+        try {
+            audioTrack?.pause()
+            audioTrack?.flush()
+            audioTrack?.stop()
+            audioTrack?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error force-releasing AudioTrack", e)
+        } finally {
+            audioTrack = null
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus { }
+        }
+        restoreOriginalMediaAudio()
+        playerScope.cancel()
+    }
+
     suspend fun stop() {
         // Restore original system music volume immediately, but let already queued
         // translated speech finish before releasing AudioTrack.
