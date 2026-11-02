@@ -6,6 +6,8 @@ import okhttp3.*
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
@@ -19,6 +21,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     @Volatile private var webSocket: WebSocket? = null
     @Volatile private var isSetupComplete = false
     @Volatile private var shouldReconnect = false
+    @Volatile private var pendingTurnCompletion: CompletableDeferred<Unit>? = null
 
     var onBinaryMessageReceived: ((ByteArray) -> Unit)? = null
     var onTextMessageReceived: ((String) -> Unit)? = null
@@ -153,6 +156,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
 
                             if (serverContent.optBoolean("turnComplete", false) ||
                                 serverContent.optBoolean("turn_complete", false)) {
+                                pendingTurnCompletion?.complete(Unit)
                                 onTurnComplete?.invoke()
                             }
                         }
@@ -338,10 +342,48 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         }
     }
 
+    /**
+     * Signals the end of captured microphone audio and waits briefly for Gemini to finish
+     * the current turn so its final translated audio can reach the playback queue.
+     * Call only after AudioRecord has stopped and its capture thread has joined.
+     */
+    suspend fun endAudioAndAwaitTurnComplete(timeoutMillis: Long = 2200L): Boolean {
+        val socket = webSocket
+        if (!shouldReconnect || !isSetupComplete || socket == null) {
+            Log.w(TAG, "Cannot signal audioStreamEnd: Gemini socket is not ready")
+            return false
+        }
+
+        val completion = CompletableDeferred<Unit>()
+        pendingTurnCompletion = completion
+        val payload = JSONObject().apply {
+            put("realtimeInput", JSONObject().apply {
+                put("audioStreamEnd", true)
+            })
+        }
+        if (!socket.send(payload.toString())) {
+            pendingTurnCompletion = null
+            Log.w(TAG, "Could not send Gemini audioStreamEnd")
+            return false
+        }
+
+        val completed = withTimeoutOrNull(timeoutMillis) {
+            completion.await()
+            true
+        } ?: false
+        if (pendingTurnCompletion === completion) pendingTurnCompletion = null
+        if (!completed) {
+            Log.w(TAG, "Timed out waiting for Gemini turnComplete after audioStreamEnd")
+        }
+        return completed
+    }
+
     @Synchronized
     fun disconnect() {
         shouldReconnect = false
         isSetupComplete = false
+        pendingTurnCompletion?.cancel()
+        pendingTurnCompletion = null
         reconnectFuture?.cancel(false)
         reconnectFuture = null
         reconnectAttempts = 0
