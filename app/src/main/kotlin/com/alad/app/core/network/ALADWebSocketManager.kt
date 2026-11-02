@@ -36,6 +36,9 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
         // Capture currently sends 50 ms chunks: retain up to ~1 second while the socket reconnects.
         private const val MAX_PENDING_AUDIO_CHUNKS = 20
+        // OkHttp buffers outgoing WebSocket messages in memory when the network is slower than capture.
+        // 128 KiB is roughly four seconds of encoded 16 kHz mono PCM; beyond this, stale live audio is dropped.
+        private const val MAX_WEBSOCKET_QUEUE_BYTES = 128L * 1024L
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
     }
@@ -50,6 +53,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     @Volatile private var receivedAudioBytes = 0L
     private val audioLock = Any()
     private val pendingAudio = ArrayDeque<ByteArray>()
+    @Volatile private var backpressureDroppedChunks = 0L
 
     @Volatile private var currentApiKey = ""
     @Volatile private var currentSourceLang = "auto"
@@ -293,22 +297,32 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             return
         }
         val socket = webSocket
-        if (socket == null || !sendAudioNow(socket, pcmData)) {
+        if (socket == null) {
+            queueAudio(pcmData)
+            return
+        }
+        // WebSocket.send() only enqueues data; it does not wait for the network to transmit it.
+        // Bound OkHttp's internal queue so a slow connection cannot exhaust the app heap.
+        if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) {
+            backpressureDroppedChunks++
+            if (backpressureDroppedChunks == 1L || backpressureDroppedChunks % 100L == 0L) {
+                Log.w(TAG, "Dropping stale captured audio under WebSocket backpressure; dropped=$backpressureDroppedChunks, queuedBytes=${socket.queueSize()}")
+            }
+            return
+        }
+        if (!sendAudioNow(socket, pcmData)) {
             queueAudio(pcmData)
             scheduleReconnect("Envio de áudio falhou")
         }
     }
 
     private fun sendAudioNow(socket: WebSocket, pcmData: ByteArray): Boolean {
-        val inputPayload = JSONObject().apply {
-            put("realtimeInput", JSONObject().apply {
-                put("audio", JSONObject().apply {
-                    put("mimeType", "audio/pcm;rate=16000")
-                    put("data", Base64.encodeToString(pcmData, Base64.NO_WRAP))
-                })
-            })
-        }
-        return socket.send(inputPayload.toString())
+        if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) return false
+        // Base64 output uses a JSON-safe alphabet. Building the fixed envelope directly avoids
+        // the temporary JSONObject/JSONStringer object graph on every 50 ms audio callback.
+        val encodedAudio = Base64.encodeToString(pcmData, Base64.NO_WRAP)
+        val payload = "{\"realtimeInput\":{\"audio\":{\"mimeType\":\"audio/pcm;rate=16000\",\"data\":\"$encodedAudio\"}}}"
+        return socket.send(payload)
     }
 
     private fun queueAudio(pcmData: ByteArray) {
