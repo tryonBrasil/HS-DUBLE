@@ -22,25 +22,24 @@ android {
 
     signingConfigs {
         create("release") {
+            // Never embed upstream or local keystore passwords in this repository.
             val releaseKeystore = rootProject.file("alad-release.jks")
-            val legacyKeystore = rootProject.file("alad-key.jks")
-            if (releaseKeystore.exists()) {
+            val storePasswordValue = project.findProperty("ALAD_STORE_PASSWORD")?.toString()
+                ?: System.getenv("ALAD_STORE_PASSWORD")
+            val keyAliasValue = project.findProperty("ALAD_KEY_ALIAS")?.toString()
+                ?: System.getenv("ALAD_KEY_ALIAS")
+            val keyPasswordValue = project.findProperty("ALAD_KEY_PASSWORD")?.toString()
+                ?: System.getenv("ALAD_KEY_PASSWORD")
+
+            if (releaseKeystore.exists() &&
+                !storePasswordValue.isNullOrBlank() &&
+                !keyAliasValue.isNullOrBlank() &&
+                !keyPasswordValue.isNullOrBlank()
+            ) {
                 storeFile = releaseKeystore
-                storePassword = "alad123456"
-                keyAlias = "alad"
-                keyPassword = "alad123456"
-                enableV1Signing = true
-                enableV2Signing = true
-                enableV3Signing = true
-                enableV4Signing = true
-            } else if (legacyKeystore.exists()) {
-                storeFile = legacyKeystore
-                storePassword = project.findProperty("ALAD_STORE_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_STORE_PASSWORD") ?: ""
-                keyAlias = project.findProperty("ALAD_KEY_ALIAS")?.toString()
-                    ?: System.getenv("ALAD_KEY_ALIAS") ?: "key0"
-                keyPassword = project.findProperty("ALAD_KEY_PASSWORD")?.toString()
-                    ?: System.getenv("ALAD_KEY_PASSWORD") ?: ""
+                storePassword = storePasswordValue
+                keyAlias = keyAliasValue
+                keyPassword = keyPasswordValue
                 enableV1Signing = true
                 enableV2Signing = true
                 enableV3Signing = true
@@ -54,7 +53,14 @@ android {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             val releaseKeystore = rootProject.file("alad-release.jks")
-            if (releaseKeystore.exists()) {
+            val hasSigningCredentials =
+                !(project.findProperty("ALAD_STORE_PASSWORD")?.toString()
+                    ?: System.getenv("ALAD_STORE_PASSWORD")).isNullOrBlank() &&
+                !(project.findProperty("ALAD_KEY_ALIAS")?.toString()
+                    ?: System.getenv("ALAD_KEY_ALIAS")).isNullOrBlank() &&
+                !(project.findProperty("ALAD_KEY_PASSWORD")?.toString()
+                    ?: System.getenv("ALAD_KEY_PASSWORD")).isNullOrBlank()
+            if (releaseKeystore.exists() && hasSigningCredentials) {
                 signingConfig = signingConfigs.getByName("release")
             }
         }
