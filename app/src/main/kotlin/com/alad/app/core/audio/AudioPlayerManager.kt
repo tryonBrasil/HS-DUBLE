@@ -258,7 +258,7 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
-    fun stop() {
+    suspend fun stop() {
         // Restore original system music volume immediately, but let already queued
         // translated speech finish before releasing AudioTrack.
         restoreOriginalMediaAudio()
@@ -274,29 +274,27 @@ class AudioPlayerManager(private val context: Context) {
             audioManager?.abandonAudioFocus { }
         }
 
-        playerScope.launch {
-            val drained = withTimeoutOrNull(3000L) {
-                jobToDrain?.join()
-                true
-            } ?: false
+        val drained = withTimeoutOrNull(3000L) {
+            jobToDrain?.join()
+            true
+        } ?: false
 
-            if (!drained) {
-                Log.w(TAG, "Playback drain timed out; stopping remaining queued speech")
-                jobToDrain?.cancel()
-            } else {
-                // AudioTrack may still contain a small hardware buffer after the final write.
-                delay(180L)
-            }
+        if (!drained) {
+            Log.w(TAG, "Playback drain timed out; stopping remaining queued speech")
+            jobToDrain?.cancel()
+        } else {
+            // AudioTrack may still contain a small hardware buffer after the final write.
+            delay(180L)
+        }
 
-            try {
-                audioTrack?.stop()
-                audioTrack?.release()
-            } catch (e: Exception) {
-                Log.w(TAG, "Error stopping audioTrack", e)
-            } finally {
-                audioTrack = null
-                playerScope.cancel()
-            }
+        try {
+            audioTrack?.stop()
+            audioTrack?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error stopping audioTrack", e)
+        } finally {
+            audioTrack = null
+            playerScope.cancel()
         }
     }
 }
