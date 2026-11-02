@@ -505,7 +505,12 @@ class AudioDubbingForegroundService : Service() {
             Log.e(TAG, "Error during graceful dubbing shutdown; forcing cleanup", e)
             audioCaptureManager?.stopCapture()
             audioCaptureManager = null
-            audioPlayerManager?.let { runCatching { it.stop() } }
+            try {
+                audioPlayerManager?.stop()
+            } catch (playerError: Exception) {
+                Log.w(TAG, "Could not drain playback during shutdown fallback", playerError)
+                audioPlayerManager?.forceStop()
+            }
             audioPlayerManager = null
             webSocketManager?.shutdown()
             webSocketManager = null
@@ -529,7 +534,7 @@ class AudioDubbingForegroundService : Service() {
         screenSubtitleTts = null
         audioCaptureManager?.stopCapture()
         audioCaptureManager = null
-        audioPlayerManager?.let { runCatching { /* graceful stop is handled above when possible */ } }
+        audioPlayerManager?.forceStop()
         audioPlayerManager = null
         settingsObservationJob?.cancel()
         settingsObservationJob = null
