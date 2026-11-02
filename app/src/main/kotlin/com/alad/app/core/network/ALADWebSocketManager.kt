@@ -31,7 +31,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     companion object {
         private const val TAG = "ALADWebSocketManager"
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        // 100 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
+        // Capture currently sends 50 ms chunks: retain up to ~1 second while the socket reconnects.
         private const val MAX_PENDING_AUDIO_CHUNKS = 20
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
