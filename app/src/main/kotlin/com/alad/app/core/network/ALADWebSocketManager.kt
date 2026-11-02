@@ -339,6 +339,12 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             copy
         }
         for (index in queued.indices) {
+            if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) {
+                val dropped = queued.size - index
+                backpressureDroppedChunks += dropped
+                Log.w(TAG, "Discarding $dropped stale reconnect audio chunks because the WebSocket send queue is full")
+                return
+            }
             if (!sendAudioNow(socket, queued[index])) {
                 // Restore the failed chunk and every later chunk in original order.
                 // Previously the remainder of this batch was silently discarded.
