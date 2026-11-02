@@ -176,8 +176,16 @@ class AudioPlayerManager(private val context: Context) {
 
     fun playAudioData(data: ByteArray) {
         val queued = QueuedAudio(data.copyOf(), playbackGeneration)
-        if (audioChannel.trySend(queued).isFailure) {
-            Log.w(TAG, "Audio playback queue is closed; dropping chunk")
+        if (audioChannel.trySend(queued).isSuccess) return
+
+        // When the bounded queue is full, prefer fresh speech over stale playback.
+        // Remove one oldest chunk, then retry once. If the channel is already closed,
+        // tryReceive also fails and the new chunk is safely discarded.
+        val removedOldest = audioChannel.tryReceive().isSuccess
+        if (removedOldest && audioChannel.trySend(queued).isSuccess) {
+            Log.w(TAG, "Playback fell behind; discarded the oldest audio chunk")
+        } else {
+            Log.w(TAG, "Audio playback queue is closed or unavailable; dropping chunk")
         }
     }
 
