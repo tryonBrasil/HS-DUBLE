@@ -6,6 +6,8 @@ import okhttp3.*
 import okio.ByteString
 import org.json.JSONArray
 import org.json.JSONObject
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
@@ -19,6 +21,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     @Volatile private var webSocket: WebSocket? = null
     @Volatile private var isSetupComplete = false
     @Volatile private var shouldReconnect = false
+    @Volatile private var pendingTurnCompletion: CompletableDeferred<Unit>? = null
 
     var onBinaryMessageReceived: ((ByteArray) -> Unit)? = null
     var onTextMessageReceived: ((String) -> Unit)? = null
@@ -31,8 +34,11 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     companion object {
         private const val TAG = "ALADWebSocketManager"
         private const val GEMINI_WS_URL = "wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent"
-        // 100 ms per chunk: retain up to ~2 seconds while the socket is reconnecting.
+        // Capture currently sends 50 ms chunks: retain up to ~1 second while the socket reconnects.
         private const val MAX_PENDING_AUDIO_CHUNKS = 20
+        // OkHttp buffers outgoing WebSocket messages in memory when the network is slower than capture.
+        // 128 KiB is roughly four seconds of encoded 16 kHz mono PCM; beyond this, stale live audio is dropped.
+        private const val MAX_WEBSOCKET_QUEUE_BYTES = 128L * 1024L
         private const val MAX_RECONNECT_DELAY_SECONDS = 30L
 
     }
@@ -47,6 +53,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     @Volatile private var receivedAudioBytes = 0L
     private val audioLock = Any()
     private val pendingAudio = ArrayDeque<ByteArray>()
+    @Volatile private var backpressureDroppedChunks = 0L
 
     @Volatile private var currentApiKey = ""
     @Volatile private var currentSourceLang = "auto"
@@ -153,6 +160,7 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
 
                             if (serverContent.optBoolean("turnComplete", false) ||
                                 serverContent.optBoolean("turn_complete", false)) {
+                                pendingTurnCompletion?.complete(Unit)
                                 onTurnComplete?.invoke()
                             }
                         }
@@ -289,22 +297,34 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             return
         }
         val socket = webSocket
-        if (socket == null || !sendAudioNow(socket, pcmData)) {
+        if (socket == null) {
+            queueAudio(pcmData)
+            return
+        }
+        // WebSocket.send() only enqueues data; it does not wait for the network to transmit it.
+        // Bound OkHttp's internal queue so a slow connection cannot exhaust the app heap.
+        if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) {
+            backpressureDroppedChunks++
+            if (backpressureDroppedChunks == 1L || backpressureDroppedChunks % 100L == 0L) {
+                Log.w(TAG, "Dropping stale captured audio under WebSocket backpressure; dropped=$backpressureDroppedChunks, queuedBytes=${socket.queueSize()}")
+            }
+            return
+        }
+        if (!sendAudioNow(socket, pcmData)) {
             queueAudio(pcmData)
             scheduleReconnect("Envio de áudio falhou")
         }
     }
 
     private fun sendAudioNow(socket: WebSocket, pcmData: ByteArray): Boolean {
-        val inputPayload = JSONObject().apply {
-            put("realtimeInput", JSONObject().apply {
-                put("audio", JSONObject().apply {
-                    put("mimeType", "audio/pcm;rate=16000")
-                    put("data", Base64.encodeToString(pcmData, Base64.NO_WRAP))
-                })
-            })
-        }
-        return socket.send(inputPayload.toString())
+        // The caller checks queueSize before encoding. Do not re-check here: a full queue is
+        // backpressure, not a broken socket, and returning false would trigger a needless
+        // reconnect and re-buffer stale audio. A concurrent enqueue can overshoot by one chunk.
+        // Base64 output uses a JSON-safe alphabet. Building the fixed envelope directly avoids
+        // the temporary JSONObject/JSONStringer object graph on every 50 ms audio callback.
+        val encodedAudio = Base64.encodeToString(pcmData, Base64.NO_WRAP)
+        val payload = "{\"realtimeInput\":{\"audio\":{\"mimeType\":\"audio/pcm;rate=16000\",\"data\":\"$encodedAudio\"}}}"
+        return socket.send(payload)
     }
 
     private fun queueAudio(pcmData: ByteArray) {
@@ -321,6 +341,12 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
             copy
         }
         for (index in queued.indices) {
+            if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) {
+                val dropped = queued.size - index
+                backpressureDroppedChunks += dropped
+                Log.w(TAG, "Discarding $dropped stale reconnect audio chunks because the WebSocket send queue is full")
+                return
+            }
             if (!sendAudioNow(socket, queued[index])) {
                 // Restore the failed chunk and every later chunk in original order.
                 // Previously the remainder of this batch was silently discarded.
@@ -338,10 +364,48 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
         }
     }
 
+    /**
+     * Signals the end of captured microphone audio and waits briefly for Gemini to finish
+     * the current turn so its final translated audio can reach the playback queue.
+     * Call only after AudioRecord has stopped and its capture thread has joined.
+     */
+    suspend fun endAudioAndAwaitTurnComplete(timeoutMillis: Long = 10000L): Boolean {
+        val socket = webSocket
+        if (!shouldReconnect || !isSetupComplete || socket == null) {
+            Log.w(TAG, "Cannot signal audioStreamEnd: Gemini socket is not ready")
+            return false
+        }
+
+        val completion = CompletableDeferred<Unit>()
+        pendingTurnCompletion = completion
+        val payload = JSONObject().apply {
+            put("realtimeInput", JSONObject().apply {
+                put("audioStreamEnd", true)
+            })
+        }
+        if (!socket.send(payload.toString())) {
+            pendingTurnCompletion = null
+            Log.w(TAG, "Could not send Gemini audioStreamEnd")
+            return false
+        }
+
+        val completed = withTimeoutOrNull(timeoutMillis) {
+            completion.await()
+            true
+        } ?: false
+        if (pendingTurnCompletion === completion) pendingTurnCompletion = null
+        if (!completed) {
+            Log.w(TAG, "Timed out waiting for Gemini turnComplete after audioStreamEnd")
+        }
+        return completed
+    }
+
     @Synchronized
     fun disconnect() {
         shouldReconnect = false
         isSetupComplete = false
+        pendingTurnCompletion?.cancel()
+        pendingTurnCompletion = null
         reconnectFuture?.cancel(false)
         reconnectFuture = null
         reconnectAttempts = 0

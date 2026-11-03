@@ -45,7 +45,7 @@ object DubbingSessionRepository {
     private val _detectedSourceLanguage = MutableStateFlow("")
     val detectedSourceLanguage: StateFlow<String> = _detectedSourceLanguage.asStateFlow()
 
-    private val _isSubtitleOverlayVisible = MutableStateFlow(true)
+    private val _isSubtitleOverlayVisible = MutableStateFlow(false)
     val isSubtitleOverlayVisible: StateFlow<Boolean> = _isSubtitleOverlayVisible.asStateFlow()
 
     // Real-time audio mixer session controls

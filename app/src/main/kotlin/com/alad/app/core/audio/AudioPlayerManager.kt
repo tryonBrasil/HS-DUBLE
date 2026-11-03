@@ -15,6 +15,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 
 class AudioPlayerManager(private val context: Context) {
     private data class QueuedAudio(val data: ByteArray, val generation: Long)
@@ -27,9 +29,10 @@ class AudioPlayerManager(private val context: Context) {
     private var focusRequest: AudioFocusRequest? = null
 
     private val playerScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-    // Keep translated speech chunks queued through short playback scheduling delays.
-    // Interruptions and session shutdown explicitly clear/cancel this queue.
-    private val audioChannel = Channel<QueuedAudio>(Channel.UNLIMITED)
+    // Bound the number of pending translated chunks so a slow device cannot build
+    // an unbounded backlog of speech that is already stale. Chunk duration is model-defined.
+    // playAudioData() drops the oldest queued chunk when this capacity is reached.
+    private val audioChannel = Channel<QueuedAudio>(capacity = MAX_QUEUED_AUDIO_CHUNKS)
     private var playbackJob: Job? = null
 
     private var initialMusicVolume: Int = -1
@@ -41,6 +44,7 @@ class AudioPlayerManager(private val context: Context) {
         private const val SAMPLE_RATE = 24000
         private const val CHANNEL_CONFIG = AudioFormat.CHANNEL_OUT_MONO
         private const val AUDIO_FORMAT = AudioFormat.ENCODING_PCM_16BIT
+        private const val MAX_QUEUED_AUDIO_CHUNKS = 20
     }
 
     @Volatile private var currentVolume: Float = 1.0f
@@ -154,15 +158,25 @@ class AudioPlayerManager(private val context: Context) {
                         // cannot be written back after the AudioTrack buffer has been cleared.
                         if (queuedAudio.generation == playbackGeneration) {
                             audioTrack?.let { track ->
-                                val written = track.write(
-                                    processedChunk, 0, processedChunk.size, AudioTrack.WRITE_BLOCKING
-                                )
-                                if (written < 0) {
-                                    Log.e(TAG, "AudioTrack write failed: $written")
-                                } else if (written != processedChunk.size) {
-                                    Log.w(TAG, "AudioTrack accepted a partial chunk: " + written + "/" + processedChunk.size + " bytes")
-                                } else {
-                                    Unit
+                                // WRITE_BLOCKING can still return a partial write. Keep writing
+                                // the remainder; discarding it here cuts the tail of translated words.
+                                var offset = 0
+                                while (offset < processedChunk.size &&
+                                    queuedAudio.generation == playbackGeneration) {
+                                    val written = track.write(
+                                        processedChunk,
+                                        offset,
+                                        processedChunk.size - offset,
+                                        AudioTrack.WRITE_BLOCKING
+                                    )
+                                    if (written <= 0) {
+                                        Log.e(TAG, "AudioTrack write stopped at " + offset + "/" + processedChunk.size + " bytes (result=" + written + ")")
+                                        break
+                                    }
+                                    offset += written
+                                }
+                                if (offset < processedChunk.size) {
+                                    Log.w(TAG, "Audio chunk incomplete: " + offset + "/" + processedChunk.size + " bytes")
                                 }
                             }
                         }
@@ -176,8 +190,20 @@ class AudioPlayerManager(private val context: Context) {
 
     fun playAudioData(data: ByteArray) {
         val queued = QueuedAudio(data.copyOf(), playbackGeneration)
-        if (audioChannel.trySend(queued).isFailure) {
-            Log.w(TAG, "Audio playback queue is closed; dropping chunk")
+        if (audioChannel.trySend(queued).isSuccess) return
+
+        // When the bounded queue is full, prefer fresh speech over stale playback.
+        // Remove one oldest chunk, then retry once. If the channel is already closed,
+        // tryReceive also fails and the new chunk is safely discarded.
+        val removedOldest = audioChannel.tryReceive().isSuccess
+        // Retry even if no item was removed: the playback worker may have freed a slot
+        // between the failed trySend() and tryReceive().
+        if (audioChannel.trySend(queued).isSuccess) {
+            if (removedOldest) {
+                Log.w(TAG, "Playback fell behind; discarded the oldest audio chunk")
+            }
+        } else {
+            Log.w(TAG, "Audio playback queue is closed or unavailable; dropping chunk")
         }
     }
 
@@ -242,13 +268,39 @@ class AudioPlayerManager(private val context: Context) {
         }
     }
 
-    fun stop() {
-        // Restore original system music volume
-        restoreOriginalMediaAudio()
-
+    /** Immediate resource release when Android destroys the service unexpectedly. */
+    fun forceStop() {
+        audioChannel.close()
         playbackJob?.cancel()
         playbackJob = null
+        try {
+            audioTrack?.pause()
+            audioTrack?.flush()
+            audioTrack?.stop()
+            audioTrack?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error force-releasing AudioTrack", e)
+        } finally {
+            audioTrack = null
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
+        } else {
+            @Suppress("DEPRECATION")
+            audioManager?.abandonAudioFocus { }
+        }
+        restoreOriginalMediaAudio()
         playerScope.cancel()
+    }
+
+    suspend fun stop() {
+        // Restore original system music volume immediately, but let already queued
+        // translated speech finish before releasing AudioTrack.
+        restoreOriginalMediaAudio()
+
+        val jobToDrain = playbackJob
+        playbackJob = null
+        audioChannel.close()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             focusRequest?.let { audioManager?.abandonAudioFocusRequest(it) }
@@ -257,12 +309,27 @@ class AudioPlayerManager(private val context: Context) {
             audioManager?.abandonAudioFocus { }
         }
 
+        val drained = withTimeoutOrNull(10000L) {
+            jobToDrain?.join()
+            true
+        } ?: false
+
+        if (!drained) {
+            Log.w(TAG, "Playback drain timed out; stopping remaining queued speech")
+            jobToDrain?.cancel()
+        } else {
+            // AudioTrack may still contain a small hardware buffer after the final write.
+            delay(180L)
+        }
+
         try {
             audioTrack?.stop()
             audioTrack?.release()
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping audioTrack", e)
+        } finally {
+            audioTrack = null
+            playerScope.cancel()
         }
-        audioTrack = null
     }
 }
