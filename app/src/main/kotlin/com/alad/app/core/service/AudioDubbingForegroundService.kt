@@ -477,12 +477,15 @@ class AudioDubbingForegroundService : Service() {
 
             // Stop AudioRecord first. stopCapture joins the capture worker so every
             // captured PCM chunk is handed to the WebSocket before audioStreamEnd.
-            audioCaptureManager?.stopCapture()
+            val captureStopped = audioCaptureManager?.stopCapture() ?: true
             audioCaptureManager = null
 
             val socket = webSocketManager
-            if (socket != null) {
+            if (socket != null && captureStopped) {
                 socket.endAudioAndAwaitTurnComplete(timeoutMillis = 10000L)
+            } else if (socket != null) {
+                // Do not signal end-of-stream while the capture worker may still be sending PCM.
+                Log.w(TAG, "Skipping audioStreamEnd because the capture worker did not stop cleanly")
             }
 
             // Drain translated chunks before closing the socket and releasing playback.
