@@ -26,7 +26,7 @@ class SettingsViewModel(private val repository: UserPreferencesRepository) : Vie
     private val _originalVolume = MutableStateFlow(0.30f)
     val originalVolume: StateFlow<Float> = _originalVolume.asStateFlow()
 
-    private val _isOriginalMuted = MutableStateFlow(true)
+    private val _isOriginalMuted = MutableStateFlow(false)
     val isOriginalMuted: StateFlow<Boolean> = _isOriginalMuted.asStateFlow()
 
     private val _voicePersona = MutableStateFlow("Puck")
