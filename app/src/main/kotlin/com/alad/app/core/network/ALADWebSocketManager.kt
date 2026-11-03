@@ -317,7 +317,9 @@ class ALADWebSocketManager(private val client: OkHttpClient) {
     }
 
     private fun sendAudioNow(socket: WebSocket, pcmData: ByteArray): Boolean {
-        if (socket.queueSize() >= MAX_WEBSOCKET_QUEUE_BYTES) return false
+        // The caller checks queueSize before encoding. Do not re-check here: a full queue is
+        // backpressure, not a broken socket, and returning false would trigger a needless
+        // reconnect and re-buffer stale audio. A concurrent enqueue can overshoot by one chunk.
         // Base64 output uses a JSON-safe alphabet. Building the fixed envelope directly avoids
         // the temporary JSONObject/JSONStringer object graph on every 50 ms audio callback.
         val encodedAudio = Base64.encodeToString(pcmData, Base64.NO_WRAP)
