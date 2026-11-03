@@ -134,7 +134,7 @@ class AudioCaptureManager {
         }
     }
 
-    fun stopCapture() {
+    fun stopCapture(): Boolean {
         val recorder: AudioRecord?
         val thread: Thread?
         synchronized(lifecycleLock) {
@@ -151,17 +151,33 @@ class AudioCaptureManager {
         } catch (e: Exception) {
             Log.w(TAG, "Error stopping AudioRecord", e)
         }
+
+        var captureStopped = thread == null || thread === Thread.currentThread()
         if (thread != null && thread !== Thread.currentThread()) {
             try {
-                thread.join(500)
+                // AudioRecord.stop() should unblock READ_BLOCKING. Allow the worker enough
+                // time to deliver its last captured chunk before audioStreamEnd is sent.
+                thread.join(2000)
+                if (thread.isAlive) {
+                    Log.w(TAG, "Audio capture worker did not stop within 2 s; interrupting")
+                    thread.interrupt()
+                    thread.join(500)
+                }
+                captureStopped = !thread.isAlive
+                if (!captureStopped) {
+                    Log.e(TAG, "Audio capture worker is still alive; final audio cannot be guaranteed")
+                }
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
+                captureStopped = false
             }
         }
+
         try {
             recorder?.release()
         } catch (e: Exception) {
             Log.w(TAG, "Error releasing AudioRecord", e)
         }
+        return captureStopped
     }
 }
