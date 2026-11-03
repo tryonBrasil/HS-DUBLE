@@ -52,7 +52,7 @@ class UserPreferencesRepository(private val context: Context) {
     val isOriginalMutedFlow: Flow<Boolean> = context.dataStore.data.map { it[IS_ORIGINAL_MUTED] ?: true }.distinctUntilChanged()
     val voicePersonaFlow: Flow<String> = context.dataStore.data.map { it[VOICE_PERSONA] ?: "Puck" }.distinctUntilChanged()
     val dubbingModeFlow: Flow<String> = context.dataStore.data.map { it[DUBBING_MODE] ?: MODE_HYBRID }.distinctUntilChanged()
-    val showDualSubtitlesFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DUAL_SUBTITLES] ?: true }.distinctUntilChanged()
+    val showDualSubtitlesFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_DUAL_SUBTITLES] ?: false }.distinctUntilChanged()
     // Audio-first mode is the default while OCR work is paused; the setting remains available.
     val screenSubtitleModeFlow: Flow<Boolean> = context.dataStore.data.map { it[SCREEN_SUBTITLE_MODE] ?: false }.distinctUntilChanged()
 
