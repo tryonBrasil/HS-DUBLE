@@ -50,7 +50,7 @@
     <string name="select_dialect">Selecionar dialeto (opcional)</string>
     <string name="standard_dialect">Padrão</string>
     <string name="dual_subtitles">Legendas duplas ao vivo</string>
-    <string name="dual_subtitles_desc">Exibe a fala original acima das legendas traduzidas</string>
+    <string name="dual_subtitles_desc">Exibe também a transcrição do áudio original (por exemplo, coreano) acima da legenda traduzida em português</string>
     <string name="mute_dubbing">Silenciar voz traduzida</string>
     <string name="mute_original">Silenciar áudio original</string>
     <string name="help_accessibility">Ajuda</string>
